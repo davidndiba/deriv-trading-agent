@@ -2,6 +2,24 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Fix — CI was red from the first real run (2026-11-18)
+Every CI run from Phase 6 onward failed in ~14 seconds — confirmed via
+the GitHub Actions UI, which the detailed logs require sign-in to read,
+so the root cause was tracked down from `python_deriv_api`'s and
+`uvicorn`'s published PyPI metadata instead: `python_deriv_api` pins
+`websockets==10.3` exactly, while `uvicorn[standard]`'s extra requires
+`websockets>=13.0` — an unsatisfiable pair, so `pip install` fails
+during dependency resolution before anything gets built, matching the
+~14s runtime. `requirements.txt` now uses plain `uvicorn` (no
+`[standard]`); confirmed from uvicorn's own metadata that this drops the
+`websockets` requirement entirely, and `api/main.py` has no websocket
+routes that would need it. **This is the exact kind of bug this
+sandbox's missing `pip`/`venv` could never have surfaced** — every
+"verified by direct execution" note throughout this build covered only
+code that doesn't need installing, and a dependency conflict is
+invisible to that. Pushed; next CI run will confirm whether this was the
+only break.
+
 ## Phase 13 — Daily/weekly performance report (2026-11-18)
 - `storage/db.py`: `get_trades_closed_since()` — every closed trade for
   an env since a given ISO timestamp, oldest first.

@@ -1,6 +1,11 @@
+# NOTE: plain `uvicorn`, not uvicorn[standard] — the [standard] extra
+# pulls in websockets>=13.0, which conflicts with python_deriv_api's
+# exact pin of websockets==10.3 (pip's resolver fails immediately on
+# this). api/main.py has no websocket endpoints of its own, so the
+# extra isn't needed. See docs/DECISIONS.md.
 python_deriv_api>=0.1.6
 fastapi>=0.115
-uvicorn[standard]>=0.32
+uvicorn>=0.32
 pydantic>=2.9
 python-dotenv>=1.0
 pandas>=2.2

@@ -10,6 +10,19 @@ Record any choice that isn't obvious from SPEC.md, with the reason.
 signal implementation cannot accidentally construct a CALL/PUT/DIGITMATCH
 request even by copy-pasting a Deriv doc example.
 
+## 2026-11-18 — uvicorn[standard] conflicts with python_deriv_api, dropped the extra
+The first real CI run (Phase 6 onward) failed every time, in ~14
+seconds — too fast to have gotten past `pip install`. Checked
+`python_deriv_api`'s published PyPI metadata directly: it pins
+`websockets==10.3` exactly. `uvicorn[standard]`'s `[standard]` extra
+requires `websockets>=13.0`. Those two constraints can never both be
+satisfied, so pip's resolver fails immediately — this is a real bug this
+sandbox's lack of `pip` couldn't have caught, exactly the gap Phase 6
+exists to close. Fix: `requirements.txt` now pins plain `uvicorn`
+(no `[standard]`), which only needs `click`/`h11` unconditionally —
+confirmed from uvicorn's own PyPI metadata. `api/main.py` has no
+websocket endpoints of its own, so the extra was never actually needed.
+
 ## 2026-11-18 — Spread model is a verified mechanism, not a verified number
 `tools/backtest.py::backtest_symbol`'s `spread_pct` shifts a long's
 effective fill price up (and a short's down) by that fraction, then
