@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS backtests (
     win_rate REAL NOT NULL,
     avg_r_multiple REAL NOT NULL,
     max_drawdown_r REAL NOT NULL,
-    needs_audit INTEGER NOT NULL
+    needs_audit INTEGER NOT NULL,
+    label TEXT NOT NULL DEFAULT ''  -- e.g. 'fold 2/4'; '' for a whole-window run
 );
 
 CREATE TABLE IF NOT EXISTS trades (
@@ -69,9 +70,14 @@ def _migrate(conn: sqlite3.Connection) -> None:
     trading_agent.db created before the `env` column was added needs an
     explicit ALTER TABLE. Safe to run every time — it's a no-op once the
     column exists."""
-    columns = {row[1] for row in conn.execute("PRAGMA table_info(trades)")}
-    if "env" not in columns:
+    trade_columns = {row[1] for row in conn.execute("PRAGMA table_info(trades)")}
+    if "env" not in trade_columns:
         conn.execute("ALTER TABLE trades ADD COLUMN env TEXT NOT NULL DEFAULT 'demo'")
+        conn.commit()
+
+    backtest_columns = {row[1] for row in conn.execute("PRAGMA table_info(backtests)")}
+    if "label" not in backtest_columns:
+        conn.execute("ALTER TABLE backtests ADD COLUMN label TEXT NOT NULL DEFAULT ''")
         conn.commit()
 
 
@@ -269,8 +275,8 @@ def log_backtest_result(
         INSERT INTO backtests (
             run_at, symbol, candle_count, total_signals, closed_trades,
             open_at_end, wins, losses, win_rate, avg_r_multiple,
-            max_drawdown_r, needs_audit
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            max_drawdown_r, needs_audit, label
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             datetime.now(timezone.utc).isoformat(),
@@ -285,6 +291,7 @@ def log_backtest_result(
             report.avg_r_multiple,
             report.max_drawdown_r,
             int(report.needs_audit),
+            getattr(report, "label", ""),
         ),
     )
     conn.commit()

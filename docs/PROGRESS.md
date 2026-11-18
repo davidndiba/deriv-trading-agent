@@ -2,6 +2,39 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 7 — Walk-forward backtest validation (2026-11-18)
+- `tools/backtest.py`: `split_into_folds()` (chronological, contiguous,
+  never shuffled — shuffling time-series folds would leak future bars
+  into an earlier fold) and `walk_forward_report()`, which runs
+  `backtest_symbol()` independently per fold and returns one
+  `BacktestReport` per fold via `summarize()`'s new optional `label`.
+  There's no parameter-fitting step anywhere in this codebase
+  (`ATR_STOP_MULTIPLE`/`REWARD_RISK_RATIO` are fixed constants, not
+  optimized on history), so this isn't train/test in the ML sense — it's
+  a consistency check: a signal that only wins in one historical stretch
+  isn't an edge.
+- `storage/db.py`: `backtests.label` column + migration, so a fold's
+  result records which fold it was (`'fold 2/4'`), threaded through
+  `log_backtest_result()`.
+- `scripts/run_phase7_walk_forward_backtest.py`: pulls the same 5000
+  historical candles as Phase 2, splits into 4 folds, prints + logs each
+  fold's report, flags any individual fold whose win rate clears 70%
+  (Phase 2's existing rule, just applied per fold now), and prints the
+  win-rate spread across folds for a human to eyeball — deliberately no
+  invented auto-threshold for "how much spread is too much," unlike the
+  70% rule which has real justification behind it. Refuses `ENV=live`.
+- Verified by direct execution in this sandbox: fold-splitting on exact
+  and uneven candle counts (confirming folds reconstruct the original
+  chronological order with no gaps or overlaps), the `backtests.label`
+  migration against a hand-built pre-migration database, and
+  `walk_forward_report()` correctly isolating a winning fold from a
+  losing one in a hand-built two-fold scenario. Full regression pass
+  across all six directly-executable test modules confirms nothing
+  earlier broke.
+- **Not verified**: against real historical Deriv data, same sandbox
+  limitation as every backtest-related phase so far.
+- **Status: pushed.**
+
 ## Phase 6 — CI pipeline (2026-11-18)
 - `.github/workflows/ci.yml`: installs `requirements.txt` and runs
   `pytest tests/ -v` on every push/PR to `main`, Python 3.11, with pip

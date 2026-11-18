@@ -183,9 +183,10 @@ class BacktestReport:
     avg_r_multiple: float
     max_drawdown_r: float
     needs_audit: bool  # win_rate > WIN_RATE_AUDIT_THRESHOLD on enough trades
+    label: str = ""  # e.g. "fold 2/4" — empty for a single whole-window run
 
 
-def summarize(symbol: str, trades: list[TradeResult]) -> BacktestReport:
+def summarize(symbol: str, trades: list[TradeResult], label: str = "") -> BacktestReport:
     closed = [t for t in trades if t.outcome != "open_at_end"]
     wins = [t for t in closed if t.outcome == "win"]
     losses = [t for t in closed if t.outcome == "loss"]
@@ -217,4 +218,52 @@ def summarize(symbol: str, trades: list[TradeResult]) -> BacktestReport:
         avg_r_multiple=avg_r,
         max_drawdown_r=max_dd,
         needs_audit=needs_audit,
+        label=label,
     )
+
+
+def split_into_folds(candles: list[_OHLC], n_folds: int) -> list[list[_OHLC]]:
+    """Chronological, non-overlapping, contiguous folds — never shuffled,
+    since these are time series and a shuffled fold would mix future bars
+    into an earlier fold's "history." Earlier folds may be one candle
+    larger than later ones when the series doesn't divide evenly."""
+    if n_folds < 1:
+        raise ValueError("n_folds must be >= 1")
+    n = len(candles)
+    base_size, remainder = divmod(n, n_folds)
+    folds: list[list[_OHLC]] = []
+    start = 0
+    for i in range(n_folds):
+        size = base_size + (1 if i < remainder else 0)
+        folds.append(candles[start : start + size])
+        start += size
+    return folds
+
+
+def walk_forward_report(
+    symbol: str,
+    candles: list[_OHLC],
+    signal_fn: Callable[[str, list], Optional[_SignalLike]],
+    *,
+    n_folds: int = 4,
+    stop_multiple: float = ATR_STOP_MULTIPLE,
+    reward_risk_ratio: float = REWARD_RISK_RATIO,
+) -> list[BacktestReport]:
+    """Runs backtest_symbol independently on each chronological fold and
+    returns one BacktestReport per fold, so performance consistency
+    across different time periods is visible instead of hidden inside
+    one aggregate number. There is no parameter-fitting step anywhere in
+    this codebase (ATR_STOP_MULTIPLE/REWARD_RISK_RATIO are fixed
+    constants, not optimized on history), so this isn't a train/test
+    split in the ML sense — it's a consistency check: a signal that only
+    "works" in one fold and not the others is not an edge, it's luck.
+    """
+    folds = split_into_folds(candles, n_folds)
+    reports = []
+    for i, fold in enumerate(folds, start=1):
+        trades = backtest_symbol(
+            symbol, fold, signal_fn,
+            stop_multiple=stop_multiple, reward_risk_ratio=reward_risk_ratio,
+        )
+        reports.append(summarize(symbol, trades, label=f"fold {i}/{n_folds}"))
+    return reports

@@ -61,6 +61,10 @@ approve, or buy anything — that stays behind each script's CLI y/n gate.
     at `LIVE_MAX_STAKE_USD` on top of the normal risk-% sizing. Don't run
     this until you've actually put in the demo time — the code enforcing
     that check is not a substitute for it.
+12. `python scripts/run_phase7_walk_forward_backtest.py` splits the same
+    historical window into 4 chronological folds and reports each one
+    separately, so a signal that only "worked" in one stretch of history
+    is visible as exactly that.
 
 ## Layout
 ```
