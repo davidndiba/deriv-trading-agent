@@ -5,12 +5,13 @@ from __future__ import annotations
 
 from config.settings import Settings
 from schemas.models import RiskBreakdown, Signal
-from tools.strategy_params import ATR_STOP_MULTIPLE, REWARD_RISK_RATIO
+from tools.strategy_params import get_strategy_params
 
 
 def build_risk_breakdown(signal: Signal, balance: float, settings: Settings) -> RiskBreakdown:
-    stop_loss_pct = (ATR_STOP_MULTIPLE * signal.atr) / signal.entry_price
-    take_profit_pct = stop_loss_pct * REWARD_RISK_RATIO
+    atr_stop_multiple, reward_risk_ratio = get_strategy_params(signal.symbol)
+    stop_loss_pct = (atr_stop_multiple * signal.atr) / signal.entry_price
+    take_profit_pct = stop_loss_pct * reward_risk_ratio
 
     return RiskBreakdown.compute(
         balance=balance,

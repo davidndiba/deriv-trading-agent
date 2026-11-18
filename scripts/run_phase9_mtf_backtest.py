@@ -24,6 +24,7 @@ from config.settings import Settings, load_settings
 from storage.db import get_connection, log_backtest_result
 from tools.backtest import backtest_symbol, summarize
 from tools.deriv_client import DerivClient, parse_candles
+from tools.strategy_params import get_strategy_params
 
 LTF_CANDLE_COUNT = 5000
 LTF_GRANULARITY_SECONDS = 60  # 1-minute
@@ -61,13 +62,21 @@ async def run(settings: Settings) -> None:
             ltf_candles = parse_candles(ltf_response)
             htf_candles = parse_candles(htf_response)
 
-            baseline_trades = backtest_symbol(symbol, ltf_candles, generate_signal)
+            stop_multiple, reward_risk_ratio = get_strategy_params(symbol)
+
+            baseline_trades = backtest_symbol(
+                symbol, ltf_candles, generate_signal,
+                stop_multiple=stop_multiple, reward_risk_ratio=reward_risk_ratio,
+            )
             baseline_report = summarize(symbol, baseline_trades, label="baseline (no HTF)")
 
             def confirmed_signal_fn(sym: str, window: list):
                 return generate_confirmed_signal(sym, window, htf_candles)
 
-            confirmed_trades = backtest_symbol(symbol, ltf_candles, confirmed_signal_fn)
+            confirmed_trades = backtest_symbol(
+                symbol, ltf_candles, confirmed_signal_fn,
+                stop_multiple=stop_multiple, reward_risk_ratio=reward_risk_ratio,
+            )
             confirmed_report = summarize(symbol, confirmed_trades, label="HTF-confirmed")
 
             log_backtest_result(conn, len(ltf_candles), baseline_report)

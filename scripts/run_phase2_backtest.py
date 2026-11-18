@@ -16,6 +16,7 @@ from config.settings import Settings, load_settings
 from storage.db import get_connection, log_backtest_result
 from tools.backtest import backtest_symbol, summarize
 from tools.deriv_client import DerivClient, parse_candles
+from tools.strategy_params import get_strategy_params
 
 CANDLE_COUNT = 5000
 GRANULARITY_SECONDS = 60  # 1-minute candles
@@ -37,7 +38,11 @@ async def run(settings: Settings) -> None:
             )
             candles = parse_candles(response)
 
-            trades = backtest_symbol(symbol, candles, generate_signal)
+            stop_multiple, reward_risk_ratio = get_strategy_params(symbol)
+            trades = backtest_symbol(
+                symbol, candles, generate_signal,
+                stop_multiple=stop_multiple, reward_risk_ratio=reward_risk_ratio,
+            )
             report = summarize(symbol, trades)
             log_backtest_result(conn, len(candles), report)
 

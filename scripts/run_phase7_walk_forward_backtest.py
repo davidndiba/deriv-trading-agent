@@ -22,6 +22,7 @@ from config.settings import Settings, load_settings
 from storage.db import get_connection, log_backtest_result
 from tools.backtest import walk_forward_report
 from tools.deriv_client import DerivClient, parse_candles
+from tools.strategy_params import get_strategy_params
 
 CANDLE_COUNT = 5000
 GRANULARITY_SECONDS = 60
@@ -44,7 +45,11 @@ async def run(settings: Settings) -> None:
             )
             candles = parse_candles(response)
 
-            reports = walk_forward_report(symbol, candles, generate_signal, n_folds=N_FOLDS)
+            stop_multiple, reward_risk_ratio = get_strategy_params(symbol)
+            reports = walk_forward_report(
+                symbol, candles, generate_signal, n_folds=N_FOLDS,
+                stop_multiple=stop_multiple, reward_risk_ratio=reward_risk_ratio,
+            )
             fold_size = len(candles) // N_FOLDS
 
             print(f"[{symbol}] {len(candles)} candles, {N_FOLDS} folds of ~{fold_size} each")

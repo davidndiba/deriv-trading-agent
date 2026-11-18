@@ -2,6 +2,28 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 11 — Per-symbol strategy parameters (2026-11-18)
+- `tools/strategy_params.py`: added `SYMBOL_STRATEGY_PARAMS` (gold and
+  the configured synthetic index get their own
+  `atr_stop_multiple`/`reward_risk_ratio`; anything else falls back to
+  the existing global defaults, so default behavior for every symbol
+  not explicitly listed is unchanged) and `get_strategy_params(symbol)`.
+- `agents/risk.py::build_risk_breakdown()` now looks up
+  `get_strategy_params(signal.symbol)` instead of the two module-level
+  constants directly — this is what Phases 3-5's live/demo sizing uses.
+- Updated every backtest script (Phase 2, 7, 9's two calls, 10) to pass
+  `get_strategy_params(symbol)` into `backtest_symbol()`/
+  `walk_forward_report()` instead of relying on those functions' default
+  args — otherwise a backtest could silently use different risk
+  parameters than what live sizing would actually use for that symbol,
+  undermining the whole point of backtesting before trusting a signal.
+- Verified by direct execution: override lookup for both configured
+  symbols, fallback to defaults for an unlisted symbol, and that the two
+  overrides and the default are all genuinely distinct from each other.
+  Full regression across all 8 dependency-free test modules confirms
+  nothing earlier broke.
+- **Status: pushed.**
+
 ## Phase 10 — A second, independently backtested signal (2026-11-18)
 - `tools/indicators.py`: `sma()`, `rolling_stddev()` (population
   stddev, the standard Bollinger Bands convention), `bollinger_bands()`

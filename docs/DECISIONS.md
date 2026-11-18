@@ -10,6 +10,21 @@ Record any choice that isn't obvious from SPEC.md, with the reason.
 signal implementation cannot accidentally construct a CALL/PUT/DIGITMATCH
 request even by copy-pasting a Deriv doc example.
 
+## 2026-11-18 — Per-symbol strategy params live in code, not `.env`
+`tools/strategy_params.py::SYMBOL_STRATEGY_PARAMS` is a plain Python
+dict, not an environment variable. ATR_STOP_MULTIPLE/REWARD_RISK_RATIO
+are strategy decisions — what counts as "stopped out" or "at target" for
+a given symbol — not deployment configuration like an API token or a
+risk percentage. Putting them in code keeps the actual strategy
+reviewable in a diff; encoding them into an env-var string
+(`"frxXAUUSD:2.0:2.5,..."`) would hide that same decision behind a
+parsing scheme for no real benefit. `get_strategy_params()` is the one
+place both `agents/risk.py` (live/demo sizing) and every backtest script
+look this up, specifically so a backtest can never silently use
+different parameters than what Phase 3+ would actually trade with for
+that symbol — the same principle as the ATR_STOP_MULTIPLE/
+REWARD_RISK_RATIO factoring-out decision from Phase 2.
+
 ## 2026-11-18 — Multi-timeframe confirmation is a comparison, not a swap
 `generate_confirmed_signal()` (agents/signals.py) is a new, separate
 function — `generate_signal()` itself is untouched, so every Phase 1-8
