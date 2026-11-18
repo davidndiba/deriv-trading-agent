@@ -2,6 +2,34 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 12 — Realistic spread modeling in the backtester (2026-11-18)
+- `tools/backtest.py::backtest_symbol()`/`walk_forward_report()`: new
+  optional `spread_pct` parameter, **defaulting to 0.0** — every call
+  site in Phase 2/7/9/10 keeps behaving exactly as before unless it
+  opts in. A long's effective fill price shifts up by `spread_pct`
+  (a short's shifts down); both the stop-loss and take-profit barriers
+  are then placed relative to that worse fill, so a long's take-profit
+  sits farther away and its stop-loss sits closer — the same direction
+  real spread cost pushes both barriers.
+- `scripts/run_phase12_spread_aware_backtest.py`: runs the Phase 1
+  signal frictionless and spread-adjusted side by side per symbol, using
+  `get_strategy_params()` for consistency with Phase 11. Refuses
+  `ENV=live`.
+- **`ASSUMED_SPREAD_PCT = 0.0002` is a placeholder, not a number sourced
+  from Deriv's own spread data** — this sandbox has no way to check a
+  real account's actual spreads. The mechanism (which barrier moves,
+  which direction) is verified; the specific magnitude is yours to
+  replace with what you actually observe. See docs/DECISIONS.md.
+- Verified by direct execution: `spread_pct=0.0` produces byte-identical
+  entry/stop-loss/take-profit values and outcomes to the pre-Phase-12
+  code path (explicit backward-compatibility check), a long's and a
+  short's barriers both shift against the trader in the expected
+  direction with the expected magnitude, and a hand-built scenario where
+  adding 1% spread flips what was a clean win at zero spread into a
+  loss. Full regression across all 9 dependency-free test modules
+  confirms nothing earlier broke.
+- **Status: pushed.**
+
 ## Phase 11 — Per-symbol strategy parameters (2026-11-18)
 - `tools/strategy_params.py`: added `SYMBOL_STRATEGY_PARAMS` (gold and
   the configured synthetic index get their own

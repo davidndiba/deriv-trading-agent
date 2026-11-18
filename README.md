@@ -76,6 +76,11 @@ approve, or buy anything — that stays behind each script's CLI y/n gate.
 15. `python scripts/run_phase10_mean_reversion_backtest.py` backtests a
     second, independent signal (`agents/mean_reversion.py` — Bollinger
     Band fade + RSI) through the same engine as Phase 2/7.
+16. `python scripts/run_phase12_spread_aware_backtest.py` runs the same
+    signal frictionless and spread-adjusted side by side. The placeholder
+    spread assumption in the script isn't sourced from real Deriv data —
+    replace it with what you actually observe before trusting the
+    magnitude of the difference.
 
 ## Layout
 ```

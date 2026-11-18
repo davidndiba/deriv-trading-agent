@@ -130,10 +130,23 @@ def backtest_symbol(
     *,
     stop_multiple: float = ATR_STOP_MULTIPLE,
     reward_risk_ratio: float = REWARD_RISK_RATIO,
+    spread_pct: float = 0.0,
 ) -> list[TradeResult]:
     """One trade at a time: once a trade is opened, no new signal is
     considered until it closes (matches "no correlation/concurrency"
-    simplicity of Phase 1/2; concurrency limits are a Phase 4 concern)."""
+    simplicity of Phase 1/2; concurrency limits are a Phase 4 concern).
+
+    spread_pct (default 0.0, i.e. frictionless — every call site before
+    Phase 12 keeps behaving exactly as before) models the real fill
+    price being slightly worse than the signal's quoted entry_price: a
+    long effectively enters spread_pct higher, a short effectively
+    enters spread_pct lower. Both the stop-loss and take-profit barriers
+    are then placed relative to that real fill price, not the raw quote
+    — so a long's take-profit barrier sits slightly farther away and its
+    stop-loss barrier slightly closer, exactly as real spread cost would
+    make it. See docs/DECISIONS.md for why this isn't guessed at as a
+    concrete Deriv-sourced number.
+    """
     trades: list[TradeResult] = []
     i = 0
     while i < len(candles):
@@ -144,23 +157,25 @@ def backtest_symbol(
             continue
 
         direction = _direction_str(signal.direction)
-        entry_price = signal.entry_price
-        stop_loss_pct = (stop_multiple * signal.atr) / entry_price
+        quoted_entry = signal.entry_price
+        stop_loss_pct = (stop_multiple * signal.atr) / quoted_entry
         take_profit_pct = stop_loss_pct * reward_risk_ratio
 
         if direction == "UP":
-            stop_loss_price = entry_price * (1 - stop_loss_pct)
-            take_profit_price = entry_price * (1 + take_profit_pct)
+            fill_price = quoted_entry * (1 + spread_pct)
+            stop_loss_price = fill_price * (1 - stop_loss_pct)
+            take_profit_price = fill_price * (1 + take_profit_pct)
         else:
-            stop_loss_price = entry_price * (1 + stop_loss_pct)
-            take_profit_price = entry_price * (1 - take_profit_pct)
+            fill_price = quoted_entry * (1 - spread_pct)
+            stop_loss_price = fill_price * (1 + stop_loss_pct)
+            take_profit_price = fill_price * (1 - take_profit_pct)
 
         result = simulate_trade(
             candles,
             symbol,
             i,
             direction,
-            entry_price,
+            fill_price,
             stop_loss_price,
             take_profit_price,
             reward_risk_ratio,
@@ -248,6 +263,7 @@ def walk_forward_report(
     n_folds: int = 4,
     stop_multiple: float = ATR_STOP_MULTIPLE,
     reward_risk_ratio: float = REWARD_RISK_RATIO,
+    spread_pct: float = 0.0,
 ) -> list[BacktestReport]:
     """Runs backtest_symbol independently on each chronological fold and
     returns one BacktestReport per fold, so performance consistency
@@ -264,6 +280,7 @@ def walk_forward_report(
         trades = backtest_symbol(
             symbol, fold, signal_fn,
             stop_multiple=stop_multiple, reward_risk_ratio=reward_risk_ratio,
+            spread_pct=spread_pct,
         )
         reports.append(summarize(symbol, trades, label=f"fold {i}/{n_folds}"))
     return reports

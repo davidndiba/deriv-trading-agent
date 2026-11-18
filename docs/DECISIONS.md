@@ -10,6 +10,23 @@ Record any choice that isn't obvious from SPEC.md, with the reason.
 signal implementation cannot accidentally construct a CALL/PUT/DIGITMATCH
 request even by copy-pasting a Deriv doc example.
 
+## 2026-11-18 — Spread model is a verified mechanism, not a verified number
+`tools/backtest.py::backtest_symbol`'s `spread_pct` shifts a long's
+effective fill price up (and a short's down) by that fraction, then
+places both the stop-loss and take-profit barriers relative to that
+worse fill — so a long's take-profit sits farther away and its
+stop-loss sits closer, matching what real spread cost actually does.
+That *mechanism* is verified by direct execution (see
+tests/test_backtest_spread.py, including a case where it flips a
+near-miss win into a loss). The *magnitude* used in
+`scripts/run_phase12_spread_aware_backtest.py`
+(`ASSUMED_SPREAD_PCT = 0.0002`) is a placeholder, explicitly not sourced
+from Deriv's own published spread data for any symbol — this sandbox has
+no way to check a real account's actual spreads. Treat the comparison's
+shape (does a given signal's edge survive realistic friction) as
+meaningful; treat the specific percentage as something to replace with
+what you actually observe.
+
 ## 2026-11-18 — Per-symbol strategy params live in code, not `.env`
 `tools/strategy_params.py::SYMBOL_STRATEGY_PARAMS` is a plain Python
 dict, not an environment variable. ATR_STOP_MULTIPLE/REWARD_RISK_RATIO
