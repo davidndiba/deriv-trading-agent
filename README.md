@@ -24,10 +24,11 @@ Progress log: [docs/PROGRESS.md](docs/PROGRESS.md).
 ## Reporting API
 `uvicorn api.main:app --reload` serves read-only reporting over the same
 SQLite log the CLI scripts write to: `/proposals`, `/trades`,
-`/trades/pnl/today`, `/backtests`, `/health`, and `/dashboard` (a visual
-equity curve/win-rate/open-positions view — open it in a browser once
-the server's running). No endpoint can propose, approve, or buy
-anything — that stays behind each script's CLI y/n gate.
+`/trades.csv` (download), `/trades/pnl/today`, `/backtests`,
+`/correlation`, `/health`, and `/dashboard` (equity curve, win rate,
+open positions, recent backtests, and the correlation matrix — open it
+in a browser once the server's running). No endpoint can propose,
+approve, or buy anything — that stays behind each script's CLI y/n gate.
 
 ## News-event blackout
 `scripts/run_phase4_demo_trading.py` and `run_phase5_live_trading.py`
@@ -103,6 +104,10 @@ default (`NEWS_BLACKOUT_ENABLED=true`); see `.env.example`.
     a second, additive check alongside the currency-overlap heuristic; a
     missing or stale (`CORRELATION_MATRIX_MAX_AGE_HOURS`) matrix falls
     back to the heuristic alone rather than blocking trading on its own.
+19. `python scripts/run_phase18_export_trades.py [--env demo|live]
+    [--status ...] [--output path.csv]` exports trade history to CSV —
+    local-only, no Deriv connection. The dashboard's "Download CSV" link
+    and `GET /trades.csv` do the same thing over the API.
 
 ## Layout
 ```

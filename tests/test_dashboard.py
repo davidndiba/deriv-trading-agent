@@ -14,6 +14,8 @@ def test_is_well_formed_html_document():
 def test_fetches_only_read_only_endpoints():
     assert 'fetchJSON("/trades' in DASHBOARD_HTML
     assert 'fetchJSON("/trades/pnl/today' in DASHBOARD_HTML
+    assert 'fetchJSON("/backtests' in DASHBOARD_HTML
+    assert 'fetchJSON("/correlation' in DASHBOARD_HTML
     # must never reference an endpoint that could place/approve/reject a trade
     for forbidden in ("/buy", "/sell", "/approve", "/proposal\"", "POST"):
         assert forbidden not in DASHBOARD_HTML
@@ -26,6 +28,11 @@ def test_declares_itself_read_only_in_the_page_text():
 def test_required_element_ids_present():
     for element_id in (
         "env", "pnlToday", "closedCount", "winRate", "openCount",
-        "equityChart", "tradesBody",
+        "equityChart", "tradesBody", "backtestsBody", "correlationBody",
+        "csvLink",
     ):
         assert f'id="{element_id}"' in DASHBOARD_HTML
+
+
+def test_csv_link_points_at_the_csv_endpoint():
+    assert '/trades.csv' in DASHBOARD_HTML

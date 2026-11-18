@@ -2,6 +2,36 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 18 + dashboard extension — CSV export, backtests/correlation views (2026-11-18)
+- `tools/csv_export.py`: `trades_to_csv()` — stdlib `csv` module, no new
+  dependency. `None` values render as empty cells (not the string
+  "None"); missing/extra dict keys are tolerated rather than raising.
+- `scripts/run_phase18_export_trades.py`: local-only, like Phase 13 —
+  no Deriv connection at all.
+- `api/main.py`: `GET /trades.csv` (same export, as a download) and
+  `GET /correlation` (the latest logged correlation run as JSON — there
+  wasn't an endpoint for this at all before now).
+- `api/dashboard.py`: added a CSV download link, a **Recent backtests**
+  table (symbol, label, win rate, avg R, max drawdown, an audit flag
+  when `needs_audit` is set), and a **Correlation matrix** table (pairs
+  sorted by |correlation|, color-coded, bolded at or above the same 0.7
+  threshold the live guard uses). Both read from endpoints that already
+  existed (`/backtests`) or were just added (`/correlation`).
+- **Verified in a real browser again**, extending the Phase 15
+  approach: re-served the dashboard via stdlib `http.server` against a
+  mock returning realistic backtest (including a `needs_audit=1` row)
+  and correlation data (three pairs at different strengths/signs).
+  Screenshots confirm the audit flag renders, win rate is computed
+  correctly (4/7 → 57.1%), and pairs sort by magnitude with the correct
+  color/bold treatment. The "no data logged yet" fallback text wasn't
+  re-verified against a live empty response this time, but the toggling
+  logic (`if (x.length === 0)`) is identical to the equity-curve
+  empty-case already verified working in Phase 15.
+- `tests/test_csv_export.py` and updated `tests/test_dashboard.py`
+  verified by direct execution. Full regression across all 16
+  dependency-free test modules confirms nothing earlier broke.
+- **Status: pushed.**
+
 ## Phase 17 follow-up — Real correlation matrix wired into the live guard (2026-11-18)
 Resolves the three questions Phase 17's own decision note left open —
 see docs/DECISIONS.md for the reasoning behind each.
