@@ -12,6 +12,27 @@ from typing import Any
 from deriv_api import DerivAPI
 
 from config.settings import Settings
+from schemas.models import Candle
+
+
+def parse_candles(ticks_history_response: dict[str, Any]) -> list[Candle]:
+    """Parse a `style=candles` ticks_history response into Candle models."""
+    raw_candles = ticks_history_response.get("candles")
+    if raw_candles is None:
+        raise ValueError(
+            "Response has no 'candles' key — was the request made with "
+            "style='candles'? (raw ticks need a different parser)"
+        )
+    return [
+        Candle(
+            epoch=c["epoch"],
+            open=float(c["open"]),
+            high=float(c["high"]),
+            low=float(c["low"]),
+            close=float(c["close"]),
+        )
+        for c in raw_candles
+    ]
 
 
 class DerivClient:

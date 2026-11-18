@@ -26,6 +26,10 @@ Progress log: [docs/PROGRESS.md](docs/PROGRESS.md).
 3. `cp .env.example .env` and fill in `APP_ID` / `API_TOKEN`.
 4. `python3 -m venv .venv && source .venv/bin/activate`
 5. `pip install -r requirements.txt`
+6. `python -m pytest tests/ -q` to confirm the signal/risk logic locally.
+7. `python scripts/run_phase1.py` to pull candles against your demo
+   account and log candidate signals (no contracts bought — see
+   docs/PHASES.md).
 
 ## Layout
 ```
