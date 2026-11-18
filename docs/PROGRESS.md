@@ -2,6 +2,42 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 17 — Real correlation matrix (2026-11-18)
+Replaces the "reasonable future improvement" flagged back in the Phase 4
+correlation-guard decision: `tools/exposure.py`'s currency-overlap
+heuristic is a blunt proxy, not a measured number.
+- `tools/correlation_matrix.py`: `simple_returns()`, `pearson_correlation()`,
+  `build_correlation_matrix()`, `get_correlation()` (order-independent
+  lookup that correctly handles a genuine 0.0 correlation — see the bug
+  this avoided, below), and `correlated_by_matrix()`, which captures a
+  case the heuristic can't: a short on a pair that's *negatively*
+  correlated with a candidate is the same stacked bet as going the same
+  direction on a positively correlated one.
+- `storage/db.py`: `correlation_matrix` table, `log_correlation_matrix()`,
+  `get_latest_correlation_matrix()`.
+- `scripts/run_phase17_correlation_matrix.py`: pulls the same
+  candle count/granularity for every configured symbol, computes and
+  logs the matrix, flags pairs at or above a configurable threshold.
+  Read-only with respect to the account — unlike the trading scripts,
+  this one does **not** refuse `ENV=live`.
+- **Caught a real bug while writing this, before it shipped**: the
+  natural-looking `matrix.get(a, b) or matrix.get(b, a)` pattern for an
+  order-independent lookup is wrong — a genuine correlation of exactly
+  `0.0` is falsy in Python, so `or` would silently fall through to the
+  second (wrong) lookup. `get_correlation()` uses explicit `in` checks
+  instead; `tests/test_correlation_matrix.py` and
+  `test_correlation_storage.py` both specifically test this case.
+- Verified by direct execution: Pearson correlation against
+  perfectly-correlated/anti-correlated/zero-variance series,
+  `correlated_by_matrix()`'s same-direction/positive and
+  opposite-direction/negative stacking logic (plus the below-threshold
+  no-match case), and the storage round-trip including the zero-
+  correlation case and that only the latest logged run comes back. Full
+  regression across all 15 dependency-free test modules confirms
+  nothing earlier broke.
+- **Status: pushed. Not yet wired into the live Phase 4/5 correlation
+  guard — see docs/DECISIONS.md for why that's a separate decision.**
+
 ## Phase 16 — Risk-adjusted performance metrics (2026-11-18)
 - `tools/metrics.py`: `sharpe_ratio()`, `sortino_ratio()`,
   `profit_factor()`, `max_consecutive_losses()` — pure math over a

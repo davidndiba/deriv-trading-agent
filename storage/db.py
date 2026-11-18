@@ -61,6 +61,15 @@ CREATE TABLE IF NOT EXISTS trades (
     status TEXT NOT NULL DEFAULT 'open',  -- 'open' | 'sold' | 'won' | 'lost'
     env TEXT NOT NULL DEFAULT 'demo'  -- 'demo' | 'live'
 );
+
+CREATE TABLE IF NOT EXISTS correlation_matrix (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    computed_at TEXT NOT NULL,
+    symbol_a TEXT NOT NULL,
+    symbol_b TEXT NOT NULL,
+    correlation REAL NOT NULL,
+    candle_count INTEGER NOT NULL
+);
 """
 
 
@@ -317,3 +326,35 @@ def log_backtest_result(
     )
     conn.commit()
     return cur.lastrowid
+
+
+def log_correlation_matrix(
+    conn: sqlite3.Connection, candle_count: int, matrix: dict[tuple[str, str], float]
+) -> None:
+    """One row per pair, all sharing the same computed_at so
+    get_latest_correlation_matrix() can pull back exactly one run."""
+    computed_at = datetime.now(timezone.utc).isoformat()
+    conn.executemany(
+        "INSERT INTO correlation_matrix (computed_at, symbol_a, symbol_b, "
+        "correlation, candle_count) VALUES (?, ?, ?, ?, ?)",
+        [
+            (computed_at, symbol_a, symbol_b, correlation, candle_count)
+            for (symbol_a, symbol_b), correlation in matrix.items()
+        ],
+    )
+    conn.commit()
+
+
+def get_latest_correlation_matrix(conn: sqlite3.Connection) -> dict[tuple[str, str], float]:
+    """The most recently logged correlation_matrix run, as a dict keyed
+    like tools.correlation_matrix.build_correlation_matrix()'s own
+    output — {} if nothing has been logged yet."""
+    row = conn.execute("SELECT MAX(computed_at) FROM correlation_matrix").fetchone()
+    latest = row[0]
+    if latest is None:
+        return {}
+    rows = conn.execute(
+        "SELECT symbol_a, symbol_b, correlation FROM correlation_matrix WHERE computed_at = ?",
+        (latest,),
+    ).fetchall()
+    return {(r[0], r[1]): r[2] for r in rows}

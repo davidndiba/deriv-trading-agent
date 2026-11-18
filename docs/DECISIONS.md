@@ -10,6 +10,22 @@ Record any choice that isn't obvious from SPEC.md, with the reason.
 signal implementation cannot accidentally construct a CALL/PUT/DIGITMATCH
 request even by copy-pasting a Deriv doc example.
 
+## 2026-11-18 — Real correlation matrix is built, not yet wired into the live guard
+`tools/correlation_matrix.py` and `scripts/run_phase17_correlation_matrix.py`
+compute and log an actual Pearson correlation between symbols — the
+"reasonable future improvement" flagged in the Phase 4 correlation-guard
+decision above, now built. It's deliberately standalone for now, same
+pattern as Phase 9's multi-timeframe filter: `tools/exposure.py`'s
+currency-overlap heuristic is still what `scripts/run_phase{4,5}_*.py`
+actually use. Wiring the real matrix into the live guard means deciding
+things this script doesn't decide for you — how stale a stored matrix
+is allowed to get before a trading run refuses to trust it, what
+candle window and threshold to standardize on, whether to recompute it
+every run or read the last logged one — and getting those wrong in a
+safety-critical guard is worse than leaving the (already-conservative)
+heuristic in place a little longer. Look at a few runs of
+`run_phase17_correlation_matrix.py` first.
+
 ## 2026-11-18 — News blackout guard defaults to ON, unlike every opt-in config before it
 Every other configurable guard in this repo (concurrency cap,
 correlation limit, Telegram) either has a sane default that doesn't

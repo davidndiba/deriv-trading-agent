@@ -95,6 +95,10 @@ default (`NEWS_BLACKOUT_ENABLED=true`); see `.env.example`.
     local trade log only — no Deriv connection at all, safe to run
     offline. Saves to `reports/` (gitignored) and can push the same text
     through Telegram.
+18. `python scripts/run_phase17_correlation_matrix.py` computes and logs
+    actual price correlation between your configured symbols. Analysis
+    only for now — not wired into the live correlation guard yet, which
+    still uses the currency-overlap heuristic.
 
 ## Layout
 ```
