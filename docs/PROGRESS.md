@@ -2,6 +2,45 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 14 — News-event blackout guard (2026-11-18)
+Requested feature: "track profits better, analyze better" — a classic
+risk-management gap this agent had until now: nothing stopped it from
+proposing a trade seconds before NFP, FOMC, or CPI, where price can spike
+well outside anything a signal backtested on calmer conditions.
+- `tools/news_calendar.py`: fetches Forex Factory's free weekly calendar
+  export (no API key needed — see docs/DECISIONS.md for how this was
+  found and why it's safe to rely on for this), parses it into
+  `NewsEvent`s, and `is_within_news_blackout()` checks whether a given
+  time falls in a configurable window around a high-impact event for a
+  set of currencies.
+- `config/settings.py`: `NEWS_BLACKOUT_ENABLED` (**default true** —
+  the one config flag in this repo that changes existing scripts'
+  behavior on deploy, deliberately, since it only ever reduces trading),
+  `NEWS_BLACKOUT_MINUTES_BEFORE`/`_AFTER` (default 30/30),
+  `NEWS_BLACKOUT_MIN_IMPACT` (default "High").
+- Wired into `scripts/run_phase4_demo_trading.py` and
+  `run_phase5_live_trading.py`: the calendar is fetched once per run;
+  each symbol's currencies (reusing `tools/exposure.py::currency_exposure`,
+  the same mapping the correlation guard already uses) are checked
+  against it before a signal is shown for approval. A fetch/parse
+  failure fails closed — no new trades proposed for that run — rather
+  than silently assuming there's no news.
+- Verified by direct execution: parsing (including a deliberately
+  malformed row, confirming it's skipped rather than crashing the whole
+  fetch), blackout-window boundary math (inclusive edges, both sides),
+  currency and impact-level filtering, and the fetch path against both a
+  mocked success and a mocked failure (confirming the failure
+  propagates rather than returning an empty list) — using real field
+  values captured from the live feed while building this, not assumed
+  from documentation. Full regression across all 11 dependency-free
+  test modules confirms nothing earlier broke.
+- **Not verified**: wiring inside `run_phase4`/`run_phase5` themselves
+  needs pydantic (same sandbox limitation as every trading script), and
+  the live feed's actual behavior over time (format changes, uptime)
+  is unknown — it's an unofficial export, not a contractually documented
+  API.
+- **Status: pushed.**
+
 ## Fix — CI was red from the first real run (2026-11-18)
 Every CI run from Phase 6 onward failed in ~14 seconds — confirmed via
 the GitHub Actions UI, which the detailed logs require sign-in to read,

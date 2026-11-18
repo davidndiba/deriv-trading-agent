@@ -27,6 +27,13 @@ SQLite log the CLI scripts write to: `/proposals`, `/trades`,
 `/trades/pnl/today`, `/backtests`, `/health`. No endpoint can propose,
 approve, or buy anything — that stays behind each script's CLI y/n gate.
 
+## News-event blackout
+`scripts/run_phase4_demo_trading.py` and `run_phase5_live_trading.py`
+skip proposing trades within a configurable window around high-impact
+economic releases (NFP, FOMC, CPI, etc.) for a symbol's currencies, using
+Forex Factory's free weekly calendar export — no API key needed. On by
+default (`NEWS_BLACKOUT_ENABLED=true`); see `.env.example`.
+
 ## Setup
 1. Register an app at https://api.deriv.com to get an `app_id`.
 2. Create a Deriv **demo** account and generate an API token scoped to

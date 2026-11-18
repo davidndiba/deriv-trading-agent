@@ -10,6 +10,40 @@ Record any choice that isn't obvious from SPEC.md, with the reason.
 signal implementation cannot accidentally construct a CALL/PUT/DIGITMATCH
 request even by copy-pasting a Deriv doc example.
 
+## 2026-11-18 — News blackout guard defaults to ON, unlike every opt-in config before it
+Every other configurable guard in this repo (concurrency cap,
+correlation limit, Telegram) either has a sane default that doesn't
+change what existing scripts do, or is explicitly optional. The news
+blackout is different: it's `NEWS_BLACKOUT_ENABLED=true` by default,
+meaning it changes `scripts/run_phase{4,5}_*.py`'s behavior the moment
+this is deployed to an existing `.env` — fewer trades get proposed near
+high-impact releases than before. This is deliberate: unlike the
+backtest's `spread_pct` (which had to default to zero to keep historical
+backtest numbers meaningful), a guard that only ever *skips* a trade
+never adds risk, so defaulting it on is the same judgment call as
+blackout *dates* being always-on rather than opt-in.
+
+## 2026-11-18 — News calendar guard fails closed, not open
+If `NEWS_BLACKOUT_ENABLED=true` and the Forex Factory feed can't be
+fetched or parsed, `scripts/run_phase{4,5}_*.py` stop proposing any new
+trades for that run entirely, rather than falling back to "assume no
+news." A broken data source and "no high-impact events this week" must
+never look the same to code that's about to risk money on that
+assumption — the exact same reasoning as the daily kill-switch failing
+toward caution, not toward permissiveness.
+
+## 2026-11-18 — News calendar data source is a free export, not an official API
+`tools/news_calendar.py` fetches
+`https://nfs.faireconomy.media/ff_calendar_thisweek.json` — Forex
+Factory's own publicly documented weekly JSON export, used by many
+retail trading tools for exactly this purpose, confirmed by fetching it
+directly and checking field names (`title`, `country`, `date`, `impact`,
+`forecast`, `previous`) rather than assuming them. It needs no API key
+and no connector/credential from the user. It is not a contractually
+documented API, though — it could change shape or disappear without
+notice, which is exactly why a fetch/parse failure fails closed (see
+above) instead of being treated as "no news."
+
 ## 2026-11-18 — uvicorn[standard] conflicts with python_deriv_api, dropped the extra
 The first real CI run (Phase 6 onward) failed every time, in ~14
 seconds — too fast to have gotten past `pip install`. Checked

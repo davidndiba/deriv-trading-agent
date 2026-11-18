@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from datetime import datetime, timezone
 from typing import Callable
 
 from agents.risk import apply_live_stake_cap, build_risk_breakdown
@@ -43,7 +44,8 @@ from storage.db import (
     log_trade_opened,
 )
 from tools.deriv_client import DerivClient, parse_candles
-from tools.exposure import correlated_open_symbols
+from tools.exposure import correlated_open_symbols, currency_exposure
+from tools.news_calendar import fetch_this_weeks_events, is_within_news_blackout
 from tools.telegram_notifier import TelegramNotifier
 
 CANDLE_COUNT = 200
@@ -180,6 +182,20 @@ async def run(
             await notifier.send(msg)
             return
 
+        news_events = []
+        if settings.news_blackout_enabled:
+            try:
+                news_events = fetch_this_weeks_events()
+            except Exception as exc:  # noqa: BLE001 — see docs/DECISIONS.md
+                msg = (
+                    f"[LIVE] News calendar unavailable ({exc!r}) — failing "
+                    "closed: not proposing any new trades this run rather "
+                    "than trading blind to a possible high-impact release."
+                )
+                print(msg)
+                await notifier.send(msg)
+                return
+
         for symbol in settings.symbols:
             open_count = get_open_trade_count(conn, env="live")
             if open_count >= settings.max_concurrent_contracts:
@@ -197,6 +213,25 @@ async def run(
             if signal is None:
                 print(f"[{symbol}] no signal")
                 continue
+
+            if settings.news_blackout_enabled:
+                blocked, event = is_within_news_blackout(
+                    currency_exposure(symbol),
+                    news_events,
+                    datetime.now(timezone.utc),
+                    minutes_before=settings.news_blackout_minutes_before,
+                    minutes_after=settings.news_blackout_minutes_after,
+                    min_impact=settings.news_blackout_min_impact,
+                )
+                if blocked:
+                    msg = (
+                        f"[{symbol}] skipped — news blackout: "
+                        f"{event.impact} impact '{event.title}' ({event.currency}) "
+                        f"at {event.at.isoformat()}"
+                    )
+                    print(msg)
+                    await notifier.send(f"[LIVE] {msg}")
+                    continue
 
             open_trades = get_open_trades(conn, env="live")
             correlated = correlated_open_symbols(symbol, signal.direction.value, open_trades)

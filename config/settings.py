@@ -41,6 +41,10 @@ class Settings:
     live_max_stake_usd: float = 1.0
     live_min_demo_soak_days: int = 14
     live_min_demo_trades: int = 20
+    news_blackout_enabled: bool = True
+    news_blackout_minutes_before: int = 30
+    news_blackout_minutes_after: int = 30
+    news_blackout_min_impact: str = "High"
 
     @property
     def telegram_enabled(self) -> bool:
@@ -99,6 +103,17 @@ def load_settings() -> Settings:
     if live_min_demo_trades < 1:
         raise RuntimeError("LIVE_MIN_DEMO_TRADES must be >= 1")
 
+    news_blackout_enabled = os.environ.get("NEWS_BLACKOUT_ENABLED", "true").strip().lower() not in (
+        "false", "0", "no",
+    )
+    news_blackout_minutes_before = int(os.environ.get("NEWS_BLACKOUT_MINUTES_BEFORE", "30"))
+    news_blackout_minutes_after = int(os.environ.get("NEWS_BLACKOUT_MINUTES_AFTER", "30"))
+    news_blackout_min_impact = os.environ.get("NEWS_BLACKOUT_MIN_IMPACT", "High").strip()
+    if news_blackout_minutes_before < 0 or news_blackout_minutes_after < 0:
+        raise RuntimeError("NEWS_BLACKOUT_MINUTES_BEFORE/AFTER must be >= 0")
+    if news_blackout_min_impact not in ("Low", "Medium", "High"):
+        raise RuntimeError("NEWS_BLACKOUT_MIN_IMPACT must be Low, Medium, or High")
+
     return Settings(
         app_id=app_id,
         api_token=api_token,
@@ -114,4 +129,8 @@ def load_settings() -> Settings:
         live_max_stake_usd=live_max_stake_usd,
         live_min_demo_soak_days=live_min_demo_soak_days,
         live_min_demo_trades=live_min_demo_trades,
+        news_blackout_enabled=news_blackout_enabled,
+        news_blackout_minutes_before=news_blackout_minutes_before,
+        news_blackout_minutes_after=news_blackout_minutes_after,
+        news_blackout_min_impact=news_blackout_min_impact,
     )
