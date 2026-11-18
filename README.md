@@ -81,6 +81,11 @@ approve, or buy anything — that stays behind each script's CLI y/n gate.
     spread assumption in the script isn't sourced from real Deriv data —
     replace it with what you actually observe before trusting the
     magnitude of the difference.
+17. `python scripts/run_phase13_performance_report.py [--period daily|weekly]
+    [--env demo|live] [--notify] [--no-save]` builds a report from the
+    local trade log only — no Deriv connection at all, safe to run
+    offline. Saves to `reports/` (gitignored) and can push the same text
+    through Telegram.
 
 ## Layout
 ```

@@ -2,6 +2,33 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 13 — Daily/weekly performance report (2026-11-18)
+- `storage/db.py`: `get_trades_closed_since()` — every closed trade for
+  an env since a given ISO timestamp, oldest first.
+- `tools/reporting.py`: `sparkline()` (pure-Python unicode-block equity
+  curve) and `build_performance_report()` — takes plain dicts (the exact
+  shape `storage.db` already returns), not pydantic models, so it has no
+  third-party dependency at all.
+- `scripts/run_phase13_performance_report.py` — **the only script that
+  doesn't connect to Deriv at all.** Everything it needs is already in
+  the local trade log, so it's safe and fast to run anytime, offline
+  even. `--period daily|weekly`, `--env demo|live`, `--notify` (sends via
+  the existing notify-only Telegram client), `--no-save` (skips writing
+  to `reports/`, now gitignored).
+- Verified by direct execution: `sparkline()` against flat/empty/
+  increasing series, `build_performance_report()` against a hand-built
+  set of closed trades (totals, win rate, P&L, per-symbol breakdown all
+  checked), `get_trades_closed_since()` against real DB data (date
+  filtering, env isolation, chronological ordering), and an end-to-end
+  smoke test wiring real DB output straight into the report builder.
+  Full regression across all 10 dependency-free test modules confirms
+  nothing earlier broke.
+- **Not verified**: the Telegram `--notify` path (needs a real bot
+  token) and the CLI argument wiring itself (`argparse` behavior wasn't
+  exercised, only the functions it calls).
+- **Status: pushed. This closes out the recommended post-v1 roadmap
+  from docs/PHASES.md (items 6-13).**
+
 ## Phase 12 — Realistic spread modeling in the backtester (2026-11-18)
 - `tools/backtest.py::backtest_symbol()`/`walk_forward_report()`: new
   optional `spread_pct` parameter, **defaulting to 0.0** — every call

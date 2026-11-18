@@ -264,6 +264,18 @@ def list_trades(
     )
 
 
+def get_trades_closed_since(conn: sqlite3.Connection, since_iso: str, env: str = "demo") -> list[dict]:
+    """Every closed (won/lost) trade for this env since a given ISO
+    timestamp, oldest first — the input to tools/reporting.py's
+    performance report, which builds its equity curve in this order."""
+    return _rows_as_dicts(
+        conn,
+        "SELECT * FROM trades WHERE env = ? AND status IN ('won', 'lost') "
+        "AND closed_at >= ? ORDER BY closed_at ASC",
+        (env, since_iso),
+    )
+
+
 def list_backtests(
     conn: sqlite3.Connection, symbol: str | None = None, limit: int = 50
 ) -> list[dict]:
