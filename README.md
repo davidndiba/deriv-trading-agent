@@ -1,5 +1,7 @@
 # Deriv Trading Agent
 
+[![CI](https://github.com/davidndiba/deriv-trading-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/davidndiba/deriv-trading-agent/actions/workflows/ci.yml)
+
 Automated market-analysis agent for Deriv (forex, gold, commodities, stocks,
 synthetic indices). Proposes **Multipliers (MULTUP/MULTDOWN)** trades with an
 explicit two-sided risk/reward breakdown and only ever fires a real contract

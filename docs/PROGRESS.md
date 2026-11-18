@@ -2,6 +2,28 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 6 — CI pipeline (2026-11-18)
+- `.github/workflows/ci.yml`: installs `requirements.txt` and runs
+  `pytest tests/ -v` on every push/PR to `main`, Python 3.11, with pip
+  caching.
+- Validated the workflow YAML itself with `pyyaml` in this sandbox
+  (available here even though the project's own dependencies aren't) —
+  caught and fixed a real bug in the process: an unquoted `on:` key
+  parses as the boolean `True` under YAML 1.1, which is exactly the
+  well-known GitHub Actions gotcha. GitHub's own parser tolerates it, but
+  `"on":` is the correct, unambiguous form, now fixed in the committed
+  file.
+- **This is the first time anything in this repo gets to run against a
+  real `pip install`** — this sandbox never had `pip`/`venv`, so every
+  prior phase's "verified by direct execution" notes only ever covered
+  the dependency-free parts of each module (indicators, backtest engine,
+  exposure math, DB functions, etc.). Once this workflow runs on GitHub,
+  check its result — it covers `pydantic`/`fastapi`/`python_deriv_api`
+  code paths (schemas/models.py, agents/signals.py, agents/risk.py,
+  api/main.py) that could not be exercised here at all before now.
+- **Status: pushed. Watch the Actions tab on the first push for the
+  actual pass/fail — don't assume it passes just because it's wired up.**
+
 ## Cross-cutting — Read-only reporting API (2026-11-18)
 Closes out a Phase 0 deliverable that was left as just a health check:
 docs/SPEC.md asks for "FastAPI service wrapping the agent's internals...

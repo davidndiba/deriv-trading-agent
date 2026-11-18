@@ -22,5 +22,18 @@ qa-agent-microvision workflow: scaffold -> build -> log -> review -> next.
   new proposals until the next day.
 - Blackout/caution dates auto-halve stake instead of skipping the day.
 
+## Post-v1 roadmap (recommended, built on request)
+
+| # | Feature | Why |
+|---|---|---|
+| 6 | CI pipeline (GitHub Actions) | First real automated test run — this sandbox has no pip/venv, so everything up to here was only verified by direct execution of the dependency-free parts. |
+| 7 | Walk-forward / out-of-sample backtest validation | Phase 2 backtests on one historical window; a rolling train/test split is the standard next check against overfitting. |
+| 8 | Deriv portfolio reconciliation | Local SQLite state could silently diverge from Deriv's own account state after a crash/restart mid-position. |
+| 9 | Multi-timeframe confirmation filter | Only take the 1m signal if a higher timeframe agrees on trend, to cut false signals. |
+| 10 | A second, independently backtested signal | E.g. mean-reversion or an ADX trend-strength filter, as its own strategy with its own Phase-2-style backtest. |
+| 11 | Per-symbol strategy parameters | Gold/forex/synthetics behave differently; `ATR_STOP_MULTIPLE`/`REWARD_RISK_RATIO` are currently one global constant. |
+| 12 | Realistic spread/commission modeling in the backtester | Current backtest assumes frictionless fills. |
+| 13 | Daily/weekly performance report | Auto-generated equity curve + summary, sent via Telegram or saved to a file. |
+
 ## Current status
 See [PROGRESS.md](./PROGRESS.md) for the running log.
