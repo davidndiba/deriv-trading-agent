@@ -2,6 +2,38 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 15 — Web dashboard (2026-11-18)
+Requested feature: "track up profits... analyze better." A visual view
+on top of the reporting API's existing JSON endpoints.
+- `api/dashboard.py`: the dashboard's HTML/JS as a plain string — no
+  templating engine, no new Python dependency, no JS framework or CDN
+  dependency either (vanilla JS, an inline SVG equity curve). Fetches
+  `/trades` and `/trades/pnl/today` client-side; cannot place, approve,
+  or reject a trade (no endpoint it calls can do that — see
+  `api/main.py`'s docstring).
+- `api/main.py`: `GET /dashboard` serves it.
+- **Actually verified in a real browser**, not just read over — this
+  sandbox can't run the FastAPI app itself (no pip), so instead: served
+  the static HTML via Python's stdlib `http.server` first against no
+  API at all (confirmed fetch failures are caught cleanly, no uncaught
+  JS errors, page renders its placeholder state correctly), then against
+  a second stdlib-server mock returning realistic trade data shaped
+  exactly like `/trades`/`/trades/pnl/today`'s real responses (confirmed
+  the summary cards, the color-coded trades table, and the equity curve
+  — including that a win-then-loss sequence correctly plots as rising
+  then falling — all compute correctly from that data). Screenshots
+  confirm both states visually.
+- `tests/test_dashboard.py`: structural sanity checks (well-formed HTML,
+  required element ids present, only read-only endpoints referenced, no
+  POST/buy/sell/approve anywhere in the page) — verified by direct
+  execution. Full regression across all 12 dependency-free test modules
+  confirms nothing earlier broke.
+- **Not verified**: serving it through the actual FastAPI app (only the
+  static HTML/JS itself was exercised in a browser) — once you have
+  `pip` available, run `uvicorn api.main:app --reload` and open
+  `/dashboard` to confirm the real wiring.
+- **Status: pushed.**
+
 ## Phase 14 — News-event blackout guard (2026-11-18)
 Requested feature: "track profits better, analyze better" — a classic
 risk-management gap this agent had until now: nothing stopped it from

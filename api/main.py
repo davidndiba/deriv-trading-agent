@@ -13,15 +13,25 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import FastAPI, Query
+from fastapi.responses import HTMLResponse
 
+from api.dashboard import DASHBOARD_HTML
 from storage.db import get_connection, get_realized_pnl_today, list_backtests, list_proposals, list_trades
 
-app = FastAPI(title="Deriv Trading Agent", version="0.1.0")
+app = FastAPI(title="Deriv Trading Agent", version="0.2.0")
 
 
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard() -> str:
+    """Equity curve, win rate, open positions, recent trades — reads the
+    JSON endpoints below client-side. Cannot place, approve, or reject a
+    trade; see this module's docstring."""
+    return DASHBOARD_HTML
 
 
 @app.get("/proposals")

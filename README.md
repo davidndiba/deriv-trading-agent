@@ -24,8 +24,10 @@ Progress log: [docs/PROGRESS.md](docs/PROGRESS.md).
 ## Reporting API
 `uvicorn api.main:app --reload` serves read-only reporting over the same
 SQLite log the CLI scripts write to: `/proposals`, `/trades`,
-`/trades/pnl/today`, `/backtests`, `/health`. No endpoint can propose,
-approve, or buy anything — that stays behind each script's CLI y/n gate.
+`/trades/pnl/today`, `/backtests`, `/health`, and `/dashboard` (a visual
+equity curve/win-rate/open-positions view — open it in a browser once
+the server's running). No endpoint can propose, approve, or buy
+anything — that stays behind each script's CLI y/n gate.
 
 ## News-event blackout
 `scripts/run_phase4_demo_trading.py` and `run_phase5_live_trading.py`
