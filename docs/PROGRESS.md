@@ -2,6 +2,34 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 9 — Multi-timeframe confirmation filter (2026-11-18)
+- `tools/multi_timeframe.py`: `build_htf_trend_lookup()` (trend label
+  per higher-timeframe candle — 'UP'/'DOWN'/None, based on that candle's
+  close vs. its own EMA) and `lookup_htf_trend()` (bisect lookup of the
+  most recent HTF candle at or before a given epoch — no lookahead, by
+  construction). No dependency, same as tools/indicators.py.
+- `agents/signals.py`: `generate_confirmed_signal()` — a **new, separate
+  function**. `generate_signal()` itself is unchanged, so every existing
+  script/backtest that calls it is unaffected.
+- `scripts/run_phase9_mtf_backtest.py`: backtests the baseline signal
+  and the HTF-confirmed signal side by side per symbol (1m candles for
+  the base signal, 15m candles for confirmation) and logs both reports.
+  **This is a comparison, not a swap** — nothing here changes what
+  Phases 3-5's trading scripts actually trade; see docs/DECISIONS.md.
+  Refuses `ENV=live`.
+- Verified by direct execution: `build_htf_trend_lookup`/
+  `lookup_htf_trend` against hand-built uptrend/downtrend/flat/
+  too-short-history series, confirming the None-until-warmed-up
+  behavior and that an exactly-flat series never claims a trend. Full
+  regression across all 7 dependency-free test modules confirms nothing
+  earlier broke.
+- **Not verified**: `generate_confirmed_signal()`/`tests/test_signals_htf.py`
+  need pydantic (same as `test_signals.py` always has) — reasoned through
+  carefully against the already-verified HTF lookup logic and the
+  already-verified base-signal series from `test_signals.py`, but not
+  executed here.
+- **Status: pushed.**
+
 ## Phase 8 — Deriv portfolio reconciliation (2026-11-18)
 - `tools/deriv_client.py`: `get_portfolio()` (every contract Deriv shows
   as currently open) and `get_open_contract_snapshot()` (one-off status

@@ -10,6 +10,19 @@ Record any choice that isn't obvious from SPEC.md, with the reason.
 signal implementation cannot accidentally construct a CALL/PUT/DIGITMATCH
 request even by copy-pasting a Deriv doc example.
 
+## 2026-11-18 — Multi-timeframe confirmation is a comparison, not a swap
+`generate_confirmed_signal()` (agents/signals.py) is a new, separate
+function — `generate_signal()` itself is untouched, so every Phase 1-8
+script and backtest that already calls it keeps doing exactly what it
+was verified to do. `scripts/run_phase9_mtf_backtest.py` only ever
+compares the confirmed signal against the baseline via the same backtest
+engine; nothing wires the HTF filter into
+`scripts/run_phase{3,4,5}_*.py`. Adopting it into live/demo trading is a
+decision to make after reading the comparison, not something a new
+script should decide unilaterally — the whole project's pattern so far
+has been "backtest before trusting a signal," and this is no different
+just because the signal is a refinement of one already in use.
+
 ## 2026-11-18 — Phase 5's demo-soak check has no override flag
 `scripts/run_phase5_live_trading.py` refuses to proceed past its
 confirmation banner unless the local trade log shows at least

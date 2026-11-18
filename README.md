@@ -69,6 +69,10 @@ approve, or buy anything — that stays behind each script's CLI y/n gate.
     trade log against Deriv's own portfolio for whichever account
     `.env` currently authorizes — the one script here that's safe to
     run against a live account anytime, since it places no orders.
+14. `python scripts/run_phase9_mtf_backtest.py` backtests the Phase 1
+    signal with and without a higher-timeframe trend filter, side by
+    side. A comparison only — it doesn't change what Phases 3-5 trade;
+    that's your call to make after reading the numbers.
 
 ## Layout
 ```

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from schemas.models import Candle, Direction, Signal
 from tools.indicators import atr, ema, rsi
+from tools.multi_timeframe import build_htf_trend_lookup, lookup_htf_trend
 
 
 @dataclass(frozen=True)
@@ -81,3 +82,34 @@ def generate_signal(
         )
 
     return None
+
+
+def generate_confirmed_signal(
+    symbol: str,
+    candles: list[Candle],
+    htf_candles: list[Candle],
+    config: SignalConfig | None = None,
+    htf_ema_period: int = 50,
+) -> Signal | None:
+    """generate_signal(), additionally requiring a higher-timeframe trend
+    (tools/multi_timeframe.py) to agree with the signal's own direction.
+
+    This is a separate function rather than a change to generate_signal()
+    itself — every Phase 1-8 script/backtest calls generate_signal() with
+    exactly (symbol, window), and changing its signature or behavior
+    would silently change what every one of those already-verified
+    phases does. This is purely additive; nothing adopts it automatically
+    — see docs/DECISIONS.md and scripts/run_phase9_mtf_backtest.py.
+    """
+    base_signal = generate_signal(symbol, candles, config)
+    if base_signal is None:
+        return None
+
+    epochs, trends = build_htf_trend_lookup(htf_candles, ema_period=htf_ema_period)
+    htf_trend = lookup_htf_trend(epochs, trends, candles[-1].epoch)
+    if htf_trend is None or htf_trend != base_signal.direction.value:
+        return None
+
+    return base_signal.model_copy(
+        update={"reason": base_signal.reason + f"; HTF trend confirms {htf_trend}"}
+    )
