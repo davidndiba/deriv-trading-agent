@@ -65,6 +65,10 @@ approve, or buy anything — that stays behind each script's CLI y/n gate.
     historical window into 4 chronological folds and reports each one
     separately, so a signal that only "worked" in one stretch of history
     is visible as exactly that.
+13. `python scripts/run_phase8_reconcile.py` cross-checks the local
+    trade log against Deriv's own portfolio for whichever account
+    `.env` currently authorizes — the one script here that's safe to
+    run against a live account anytime, since it places no orders.
 
 ## Layout
 ```

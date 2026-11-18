@@ -158,3 +158,19 @@ class DerivClient:
         return await api.subscribe(
             {"proposal_open_contract": 1, "contract_id": contract_id}
         )
+
+    async def get_portfolio(self) -> dict[str, Any]:
+        """Every contract Deriv's own records show as currently open on
+        this account — the source of truth for reconciliation against
+        the local trade log (see tools/reconciliation.py)."""
+        api = self._require_api()
+        return await api.portfolio({"portfolio": 1})
+
+    async def get_open_contract_snapshot(self, *, contract_id: int) -> dict[str, Any]:
+        """One-off current status for a contract — no `subscribe`, unlike
+        subscribe_open_contract. Used to find out what actually happened
+        to a contract the local log still thinks is open."""
+        api = self._require_api()
+        return await api.proposal_open_contract(
+            {"proposal_open_contract": 1, "contract_id": contract_id}
+        )

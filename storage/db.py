@@ -189,6 +189,15 @@ def get_open_trades(conn: sqlite3.Connection, env: str = "demo") -> list[tuple[s
     return [(r[0], r[1]) for r in rows]
 
 
+def get_open_contract_ids(conn: sqlite3.Connection, env: str = "demo") -> set[int]:
+    """Every contract_id the local log still calls 'open' for this env —
+    the local side of the reconciliation check in tools/reconciliation.py."""
+    rows = conn.execute(
+        "SELECT contract_id FROM trades WHERE status = 'open' AND env = ?", (env,)
+    ).fetchall()
+    return {r[0] for r in rows}
+
+
 def get_open_trade_count(conn: sqlite3.Connection, env: str = "demo") -> int:
     row = conn.execute(
         "SELECT COUNT(*) FROM trades WHERE status = 'open' AND env = ?", (env,)

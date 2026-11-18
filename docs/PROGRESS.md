@@ -2,6 +2,32 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 8 — Deriv portfolio reconciliation (2026-11-18)
+- `tools/deriv_client.py`: `get_portfolio()` (every contract Deriv shows
+  as currently open) and `get_open_contract_snapshot()` (one-off status
+  for a single contract, no subscription).
+- `tools/reconciliation.py`: `diff_portfolio()` — pure set difference
+  between local and Deriv open-contract ids, returning `(ghosts,
+  orphans)`. Ghosts (local says open, Deriv disagrees) get healed by
+  fetching the real outcome and updating the local record. Orphans
+  (Deriv says open, local has no record) are only ever reported — this
+  never silently writes a position it didn't create into the local log.
+- `storage/db.py`: `get_open_contract_ids()`.
+- `scripts/run_phase8_reconcile.py` — **the first non-trading script
+  that does not refuse `ENV=live`.** It places no orders at all
+  (`portfolio` and a one-off `proposal_open_contract` read, plus local
+  `UPDATE`s to heal ghosts), so it's exactly the kind of check worth
+  running against a real account after a crash or restart, not something
+  that needs gating the way order-placing scripts do.
+- Verified by direct execution: every `diff_portfolio()` scenario (no
+  drift, ghost only, orphan only, both, both empty) and the healing flow
+  against the real `storage/db.py` functions (confirming a healed ghost
+  actually drops out of `get_open_contract_ids()`).
+- **Not verified**: the real `portfolio`/`proposal_open_contract` calls
+  against a live Deriv session — same sandbox limitation as every other
+  live-API-touching phase.
+- **Status: pushed.**
+
 ## Phase 7 — Walk-forward backtest validation (2026-11-18)
 - `tools/backtest.py`: `split_into_folds()` (chronological, contiguous,
   never shuffled — shuffling time-series folds would leak future bars
