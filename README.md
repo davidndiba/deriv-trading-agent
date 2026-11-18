@@ -61,6 +61,12 @@ default (`NEWS_BLACKOUT_ENABLED=true`); see `.env.example`.
     skip). Telegram only ever notifies; the CLI y/n gate still decides.
     Still demo-only, and this code existing doesn't replace the 2-4 week
     clean demo run docs/PHASES.md asks for before Phase 5.
+    For unattended operation, set `AUTO_APPROVE_DEMO_TRADES=true` and run
+    `python scripts/run_phase4_demo_trading.py --loop` (optionally
+    `--interval-seconds N`, default 300) — this has no effect at all
+    unless `ENV=demo`, checked three independent ways (see
+    docs/DECISIONS.md). Without the flag, `--loop` will just hang on the
+    first signal waiting for a keypress nobody's there to give.
 11. `scripts/run_phase5_live_trading.py` is the **only** script here that
     will touch a real account. It refuses to run unless `ENV=live`, then
     refuses further unless your local demo trade log already shows

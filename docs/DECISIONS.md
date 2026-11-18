@@ -10,6 +10,32 @@ Record any choice that isn't obvious from SPEC.md, with the reason.
 signal implementation cannot accidentally construct a CALL/PUT/DIGITMATCH
 request even by copy-pasting a Deriv doc example.
 
+## 2026-11-18 — Auto-approve is demo-only in three independent ways, deliberately redundant
+`AUTO_APPROVE_DEMO_TRADES` removes the one thing every phase in this
+project has been built around: a human explicitly approving every
+`buy`. That makes "never effective when ENV=live" the single
+highest-stakes property in this feature, so it isn't enforced once —
+it's enforced three times, each independently sufficient on its own:
+1. `scripts/run_phase4_demo_trading.py::run()` already refuses to run
+   at all with `ENV=live` (pre-existing, from Phase 4's original build).
+2. `Settings.auto_approve_effective` ANDs the raw flag with "not live"
+   at the settings layer itself, so any new code that reads this
+   property instead of the raw field gets the guarantee for free.
+3. `auto_approve_prompt()` checks `auto_approve_effective` again at the
+   moment it would approve a trade, and raises rather than approving if
+   it's ever false — a plain `if`, not `assert`, since `assert` is
+   compiled out entirely under `python -O` and a safety check that can
+   be silently disabled by an interpreter flag isn't one.
+No single one of these three is trusted alone; a bug in any one still
+leaves two more in the way of an auto-approved live trade.
+
+Only `scripts/run_phase4_demo_trading.py` was given this capability.
+`scripts/run_phase5_live_trading.py` doesn't read `AUTO_APPROVE_DEMO_TRADES`
+or `auto_approve_effective` at all — its own `default_approval_prompt()`
+is hardcoded with no injection point for anything else, so there's no
+code path through which auto-approval could ever reach a real account
+even if every one of the three checks above were somehow bypassed.
+
 ## 2026-11-18 — Real correlation matrix is now wired in, additively and opt-in
 `tools/correlation_matrix.py` and `scripts/run_phase17_correlation_matrix.py`
 compute and log an actual Pearson correlation between symbols — the

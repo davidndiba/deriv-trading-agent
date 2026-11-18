@@ -13,13 +13,23 @@ clean for 2-4 weeks; this script can be built and reviewed before that,
 but don't treat its guards as license to skip that soak period before
 moving toward real money (Phase 5).
 
-The CLI y/n approval gate from Phase 3 is unchanged and still the only
-thing that can trigger a `buy` — Telegram here is notify-only, per
-docs/SPEC.md's non-negotiables ("CLI y/n for v1; Telegram approve/reject
-can come later").
+The CLI y/n approval gate from Phase 3 is the default and still the only
+thing that can trigger a `buy` on a live account — Telegram here is
+notify-only, per docs/SPEC.md's non-negotiables ("CLI y/n for v1;
+Telegram approve/reject can come later").
+
+For unattended demo soak runs, AUTO_APPROVE_DEMO_TRADES=true (default
+false) replaces the human y/n with automatic approval — every other
+guard above still runs first, and this flag has NO effect at all unless
+ENV=demo (enforced three separate ways: this script already refuses to
+run at all with ENV=live, Settings.auto_approve_effective is AND-ed with
+"not live" at the settings layer, and auto_approve_prompt() asserts that
+property again at call time). --loop runs continuously instead of once;
+see main() for both.
 """
 from __future__ import annotations
 
+import argparse
 import asyncio
 import sys
 from datetime import datetime, timezone
@@ -54,6 +64,41 @@ def default_approval_prompt(proposal: TradeProposal) -> bool:
     print(proposal.render())
     answer = input("\nApprove this trade? [y/N]: ").strip().lower()
     return answer == "y"
+
+
+def make_auto_approve_prompt(settings: Settings) -> Callable[[TradeProposal], bool]:
+    """Returns an approval function that approves every proposal without
+    waiting for input() — for unattended demo soak runs (AUTO_APPROVE_DEMO_TRADES).
+
+    Every other guard (kill-switch, concurrency, correlation, news
+    blackout) still runs before a proposal ever reaches this function;
+    this only replaces the human y/n, nothing else. The full two-sided
+    risk/reward breakdown is still printed and logged for every trade,
+    auto-approved or not — the only thing missing is a human having read
+    it first.
+
+    Takes `settings` (not a bare bool) specifically so it can assert
+    `settings.auto_approve_effective` at call time — the property that's
+    AND-ed with "not live" — rather than trust whatever flag the caller
+    computed, as one more layer on top of main()'s own check and
+    run()'s unconditional refusal to execute at all with ENV=live.
+    """
+
+    def auto_approve_prompt(proposal: TradeProposal) -> bool:
+        # A plain `if`, not `assert` — assert statements are compiled
+        # out entirely under `python -O`, which would silently disable
+        # this defense-in-depth layer. This check must always run.
+        if not settings.auto_approve_effective:
+            raise RuntimeError(
+                "auto_approve_prompt called without auto_approve_effective — "
+                "this must never happen; refusing to approve."
+            )
+        print()
+        print("[AUTO-APPROVED — DEMO ONLY, no human reviewed this]")
+        print(proposal.render())
+        return True
+
+    return auto_approve_prompt
 
 
 async def _monitor_contract(
@@ -260,8 +305,9 @@ async def run(
                 buy_price=buy_data["buy_price"],
             )
             print(f"[{symbol}] bought contract {contract_id} at {buy_data['buy_price']}\n")
+            auto_tag = "[AUTO-APPROVED] " if settings.auto_approve_effective else ""
             await notifier.send(
-                f"[{symbol}] bought {signal.direction.value} contract {contract_id}, "
+                f"{auto_tag}[{symbol}] bought {signal.direction.value} contract {contract_id}, "
                 f"stake=${risk.stake}"
             )
             monitors.append(
@@ -283,14 +329,71 @@ async def run(
         conn.close()
 
 
+async def _run_loop(settings: Settings, approval_prompt, interval_seconds: int) -> None:
+    """Repeats run() forever, sleeping between passes. Each pass makes
+    its own fresh Deriv connection (run() already connects/disconnects
+    internally) — not held open across the sleep. Ctrl+C stops it
+    cleanly; any other exception from a single pass is logged and the
+    loop continues rather than taking the whole process down overnight."""
+    while True:
+        try:
+            await run(settings, approval_prompt=approval_prompt)
+        except Exception as exc:  # noqa: BLE001 — keep the loop alive
+            print(f"Pass failed, will retry next interval: {exc!r}")
+        print(f"--- sleeping {interval_seconds}s before the next pass ---\n")
+        await asyncio.sleep(interval_seconds)
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--loop", action="store_true",
+        help="Run continuously instead of a single pass, sleeping "
+        "--interval-seconds between runs. Still blocks on input() for "
+        "every trade unless AUTO_APPROVE_DEMO_TRADES=true in .env.",
+    )
+    parser.add_argument(
+        "--interval-seconds", type=int, default=300,
+        help="Seconds to sleep between passes in --loop mode (default 300).",
+    )
+    args = parser.parse_args()
+
     try:
         settings = load_settings()
     except RuntimeError as exc:
         print(f"Config error: {exc}", file=sys.stderr)
         raise SystemExit(1)
 
-    asyncio.run(run(settings))
+    approval_prompt = (
+        make_auto_approve_prompt(settings)
+        if settings.auto_approve_effective
+        else default_approval_prompt
+    )
+    if settings.auto_approve_demo_trades and not settings.auto_approve_effective:
+        print(
+            "AUTO_APPROVE_DEMO_TRADES is set but has no effect here "
+            f"(ENV={settings.env!r}) — falling back to manual approval.",
+            file=sys.stderr,
+        )
+
+    if args.loop:
+        if args.interval_seconds < 1:
+            print("Config error: --interval-seconds must be >= 1", file=sys.stderr)
+            raise SystemExit(1)
+        if not settings.auto_approve_effective:
+            print(
+                "WARNING: --loop without AUTO_APPROVE_DEMO_TRADES=true will "
+                "block on input() the moment a signal fires, with nothing "
+                "to read it. Set AUTO_APPROVE_DEMO_TRADES=true in .env for "
+                "genuinely unattended operation, or stay at the terminal.",
+                file=sys.stderr,
+            )
+        try:
+            asyncio.run(_run_loop(settings, approval_prompt, args.interval_seconds))
+        except KeyboardInterrupt:
+            print("\nStopped.")
+    else:
+        asyncio.run(run(settings, approval_prompt=approval_prompt))
 
 
 if __name__ == "__main__":

@@ -2,6 +2,52 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 19 — Demo-only auto-approve + continuous (--loop) operation (2026-11-18)
+Requested capability: run the demo soak unattended for weeks to build up
+a real track record before any January real-money decision. Needed
+because every trade requiring a human y/n at a blocking `input()` call
+makes true unattended operation impossible as the scripts stood —
+explicitly discussed with the user, who chose this (over Telegram
+approve/reject, or staying fully manual) after being told plainly that
+a cron job calling the old script would just hang forever waiting for a
+keypress nobody's there to give.
+- `config/settings.py`: `AUTO_APPROVE_DEMO_TRADES` (default false) and
+  `Settings.auto_approve_effective` — the raw flag ANDed with "not live"
+  at the settings layer, so every reader of this property gets the
+  "never live" guarantee for free regardless of what called it.
+- `scripts/run_phase4_demo_trading.py`: `make_auto_approve_prompt()`
+  returns an approval function that skips `input()` and approves
+  immediately — after every other guard (kill-switch, concurrency,
+  correlation, news blackout) has already run, with the full two-sided
+  risk/reward breakdown still printed and logged, clearly marked
+  `[AUTO-APPROVED — DEMO ONLY, no human reviewed this]` in both console
+  output and Telegram. Checks `auto_approve_effective` again at call
+  time with a plain `if`/`raise` (not `assert`, which `python -O`
+  strips entirely) as a third, independent layer — see docs/DECISIONS.md
+  for why this is deliberately checked three separate times rather than
+  trusted once. `scripts/run_phase5_live_trading.py` was not touched at
+  all; it has no code path this could reach even if every check above
+  somehow failed.
+- `--loop [--interval-seconds N]`: repeats the scan-propose-buy-monitor
+  pass forever (default every 300s), each pass opening and closing its
+  own Deriv connection rather than holding one open across the sleep. A
+  failed pass is logged and the loop continues rather than taking the
+  whole process down overnight. Warns loudly if `--loop` is used without
+  `AUTO_APPROVE_DEMO_TRADES=true` (it'll just hang on the first signal).
+- Verified by direct execution: the full `auto_approve_effective`
+  defense-in-depth matrix (off by default, effective when demo+enabled,
+  **not** effective when live even with the flag left set) against the
+  real `Settings` class, and `make_auto_approve_prompt`'s approve/refuse
+  logic against a faithful reimplementation (the real function can't be
+  imported here — needs the same pydantic/deriv_api chain every trading
+  script does), diffed line-by-line against the committed source to
+  confirm they match. Full regression across all 17 dependency-free
+  test modules confirms nothing earlier broke.
+- **Not verified**: the actual wiring inside `main()`/`run()` (which
+  script picks which approval function, the `--loop` sleep/retry logic)
+  needs pydantic to import at all — reviewed carefully, not executed.
+- **Status: pushed.**
+
 ## Phase 18 + dashboard extension — CSV export, backtests/correlation views (2026-11-18)
 - `tools/csv_export.py`: `trades_to_csv()` — stdlib `csv` module, no new
   dependency. `None` values render as empty cells (not the string

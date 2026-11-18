@@ -48,6 +48,7 @@ class Settings:
     use_real_correlation_matrix: bool = False
     correlation_matrix_max_age_hours: int = 24
     correlation_matrix_threshold: float = 0.7
+    auto_approve_demo_trades: bool = False
 
     @property
     def telegram_enabled(self) -> bool:
@@ -56,6 +57,17 @@ class Settings:
     @property
     def is_live(self) -> bool:
         return self.env.lower() == "live"
+
+    @property
+    def auto_approve_effective(self) -> bool:
+        """The raw AUTO_APPROVE_DEMO_TRADES flag, AND-ed with "not live"
+        at the settings layer itself — defense-in-depth on top of
+        run_phase4_demo_trading.py already refusing to run at all with
+        ENV=live, and auto_approve_prompt() asserting the same thing
+        again. Any code that reads this property instead of the raw
+        field gets the "never live" guarantee for free, even if a
+        future refactor adds a new call site that forgets to check."""
+        return self.auto_approve_demo_trades and not self.is_live
 
     def is_blackout_date(self, today: date | None = None) -> bool:
         d = today or date.today()
@@ -131,6 +143,10 @@ def load_settings() -> Settings:
     if not (0 < correlation_matrix_threshold <= 1):
         raise RuntimeError("CORRELATION_MATRIX_THRESHOLD must be between 0 and 1")
 
+    auto_approve_demo_trades = os.environ.get(
+        "AUTO_APPROVE_DEMO_TRADES", "false"
+    ).strip().lower() in ("true", "1", "yes")
+
     return Settings(
         app_id=app_id,
         api_token=api_token,
@@ -153,4 +169,5 @@ def load_settings() -> Settings:
         use_real_correlation_matrix=use_real_correlation_matrix,
         correlation_matrix_max_age_hours=correlation_matrix_max_age_hours,
         correlation_matrix_threshold=correlation_matrix_threshold,
+        auto_approve_demo_trades=auto_approve_demo_trades,
     )
