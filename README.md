@@ -30,6 +30,9 @@ Progress log: [docs/PROGRESS.md](docs/PROGRESS.md).
 7. `python scripts/run_phase1.py` to pull candles against your demo
    account and log candidate signals (no contracts bought — see
    docs/PHASES.md).
+8. `python scripts/run_phase2_backtest.py` to backtest that signal against
+   5000 historical candles per symbol and print win rate / avg R / max
+   drawdown (still no contracts bought).
 
 ## Layout
 ```

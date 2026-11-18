@@ -26,6 +26,29 @@ other module is allowed to set a stake value directly — this keeps the
 "never a flat dollar stake, never martingale" rule enforceable by code
 review (one function to check) rather than by convention across call sites.
 
+## 2026-11-18 — Backtest engine duplicates no strategy math, only entry logic
+`tools/backtest.py` imports `ATR_STOP_MULTIPLE`/`REWARD_RISK_RATIO` from
+the new `tools/strategy_params.py` (also used by `agents/risk.py`) instead
+of hardcoding its own stop/target multiples. A backtest that quietly used
+different risk parameters than the live sizing logic would produce a
+report that doesn't describe what Phase 3 will actually do — worse than
+no backtest at all.
+
+## 2026-11-18 — Backtest intrabar ambiguity resolved conservatively
+When a single OHLC bar's range touches both the stop-loss and the
+take-profit level, `simulate_trade()` assumes the stop-loss was hit first.
+OHLC data alone can't tell you the actual intrabar order, and assuming the
+best case here is exactly the kind of optimistic bias that inflates a
+backtested win rate — see the >70% audit rule in docs/SPEC.md Phase 2.
+
+## 2026-11-18 — Backtest runs one trade at a time, no overlap
+`backtest_symbol()` does not consider a new signal until the previous
+trade has closed (hit TP, hit SL, or run out of data). Concurrency/
+correlation limits across multiple open positions are explicitly a Phase 4
+concern (docs/PHASES.md); modeling them in the Phase 2 backtest would add
+complexity without changing what Phase 2 needs to answer: is this single
+signal's edge real.
+
 ## 2026-11-18 — FastAPI wraps the agent instead of the agent importing FastAPI
 `api/main.py` imports from `agents/`/`tools/`, not the other way round, so
 the signal/analysis/trading logic has no web-framework dependency and can be

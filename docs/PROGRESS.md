@@ -2,6 +2,41 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 2 — Backtest validation (2026-11-18)
+- `tools/strategy_params.py`: pulled `ATR_STOP_MULTIPLE`/`REWARD_RISK_RATIO`
+  out of `agents/risk.py` into their own dependency-free module so the
+  backtester uses the exact same risk parameters as live sizing, and so it
+  stays importable/testable without pydantic.
+- `tools/backtest.py`: walk-forward engine. At bar i, the signal function
+  only ever sees `candles[:i+1]` — never a later bar (lookahead-safe by
+  construction). Each trade's TP/SL outcome is found by scanning forward;
+  if a single bar's range touches both levels, stop-loss is assumed to
+  win (conservative — see docs/DECISIONS.md). One trade at a time, no
+  overlap. `summarize()` reports win rate, avg R-multiple, and max
+  drawdown in R, and flags `needs_audit=True` when win rate exceeds 70%
+  over >= 10 closed trades, per docs/SPEC.md's lookahead-bug warning.
+- `storage/db.py`: added a `backtests` table and `log_backtest_result()`.
+- `scripts/run_phase2_backtest.py`: pulls 5000 historical 1-minute candles
+  per symbol from the demo account (purely as a historical-data source —
+  no trading session state needed), runs the Phase 1 signal through the
+  backtest engine, prints + logs the report per symbol, and prints an
+  explicit stop-and-audit warning if win rate looks suspicious. Refuses to
+  run with `ENV=live`. **No `buy`/`sell`/`proposal` call exists anywhere
+  in this phase's code.**
+- Verified in this sandbox by direct execution (not pytest, which still
+  isn't installable here): hand-constructed win/loss/both-touched/
+  ran-out-of-data scenarios for `simulate_trade()`, a two-trade no-overlap
+  sequence for `backtest_symbol()`/`summarize()` checked against
+  hand-computed win rate/avg-R/drawdown, and a forced 100%-win-rate series
+  confirmed to set `needs_audit=True`. All of `tests/test_backtest.py`'s
+  functions were also run manually end-to-end and passed.
+- **Not run against real historical Deriv data** — same sandbox limitation
+  as Phase 1 (no `pip`/`venv` here to install `python_deriv_api`). Run
+  `scripts/run_phase2_backtest.py` yourself and read the printed report
+  (and the stop-and-audit warning, if it fires) before deciding whether
+  this signal is worth taking to Phase 3.
+- **Status: pushed for review.**
+
 ## Phase 1 — Data + analysis only (2026-11-18)
 - `tools/indicators.py`: pure-Python EMA, Wilder's RSI, Wilder's ATR. No
   pandas/numpy/pydantic dependency, verified by hand against known test

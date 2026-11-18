@@ -5,9 +5,7 @@ from __future__ import annotations
 
 from config.settings import Settings
 from schemas.models import RiskBreakdown, Signal
-
-ATR_STOP_MULTIPLE = 1.5
-REWARD_RISK_RATIO = 2.0
+from tools.strategy_params import ATR_STOP_MULTIPLE, REWARD_RISK_RATIO
 
 
 def build_risk_breakdown(signal: Signal, balance: float, settings: Settings) -> RiskBreakdown:
