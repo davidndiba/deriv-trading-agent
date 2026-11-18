@@ -2,6 +2,32 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 10 — A second, independently backtested signal (2026-11-18)
+- `tools/indicators.py`: `sma()`, `rolling_stddev()` (population
+  stddev, the standard Bollinger Bands convention), `bollinger_bands()`
+  — all pure Python, same style as every other indicator here.
+- `agents/mean_reversion.py`: `generate_mean_reversion_signal()` — the
+  opposite style from `agents/signals.py`'s trend-following crossover.
+  Fades the move (bets on reversion) when price closes outside a
+  Bollinger Band AND RSI confirms the extreme, filtered by the same
+  ATR% volatility band as the first signal. A separate module entirely
+  — nothing shared with or changed in `agents/signals.py`.
+- `scripts/run_phase10_mean_reversion_backtest.py`: backtests this
+  signal through the exact same engine and audit rule as Phase 2/7.
+  Refuses `ENV=live`.
+- Verified by direct execution: `sma`/`rolling_stddev`/`bollinger_bands`
+  against hand-computed values (including a flat series collapsing
+  upper/lower bands onto the middle band exactly). Found and checked two
+  synthetic series — a late sharp spike up, and a late sharp drop — that
+  trigger the fade-down and fade-up cases respectively, confirmed
+  against the already-verified Bollinger/RSI/ATR math before writing
+  them into `tests/test_mean_reversion.py`. Full regression across all
+  7 dependency-free test modules confirms nothing earlier broke.
+- **Not verified**: `generate_mean_reversion_signal()` itself needs
+  pydantic — same sandbox limitation as every `schemas.models`-dependent
+  module throughout this build.
+- **Status: pushed.**
+
 ## Phase 9 — Multi-timeframe confirmation filter (2026-11-18)
 - `tools/multi_timeframe.py`: `build_htf_trend_lookup()` (trend label
   per higher-timeframe candle — 'UP'/'DOWN'/None, based on that candle's

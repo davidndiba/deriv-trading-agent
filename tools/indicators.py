@@ -11,6 +11,52 @@ class _OHLC(Protocol):
     close: float
 
 
+def sma(values: list[float], period: int) -> list[float | None]:
+    """Simple moving average. First `period - 1` entries are None."""
+    if period < 1:
+        raise ValueError("period must be >= 1")
+    n = len(values)
+    out: list[float | None] = [None] * n
+    for i in range(period - 1, n):
+        window = values[i - period + 1 : i + 1]
+        out[i] = sum(window) / period
+    return out
+
+
+def rolling_stddev(values: list[float], period: int) -> list[float | None]:
+    """Population standard deviation over a trailing window (the usual
+    Bollinger Bands convention — divides by period, not period - 1).
+    First `period - 1` entries are None."""
+    if period < 1:
+        raise ValueError("period must be >= 1")
+    n = len(values)
+    out: list[float | None] = [None] * n
+    for i in range(period - 1, n):
+        window = values[i - period + 1 : i + 1]
+        mean = sum(window) / period
+        variance = sum((x - mean) ** 2 for x in window) / period
+        out[i] = variance**0.5
+    return out
+
+
+def bollinger_bands(
+    values: list[float], period: int = 20, num_std: float = 2.0
+) -> tuple[list[float | None], list[float | None], list[float | None]]:
+    """Returns (middle, upper, lower) — middle is the SMA, upper/lower
+    are middle +/- num_std * rolling population stddev."""
+    middle = sma(values, period)
+    stddev = rolling_stddev(values, period)
+    upper = [
+        m + num_std * s if m is not None and s is not None else None
+        for m, s in zip(middle, stddev)
+    ]
+    lower = [
+        m - num_std * s if m is not None and s is not None else None
+        for m, s in zip(middle, stddev)
+    ]
+    return middle, upper, lower
+
+
 def ema(values: list[float], period: int) -> list[float]:
     """Standard exponential moving average, seeded with the first value."""
     if period < 1:

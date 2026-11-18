@@ -73,6 +73,9 @@ approve, or buy anything — that stays behind each script's CLI y/n gate.
     signal with and without a higher-timeframe trend filter, side by
     side. A comparison only — it doesn't change what Phases 3-5 trade;
     that's your call to make after reading the numbers.
+15. `python scripts/run_phase10_mean_reversion_backtest.py` backtests a
+    second, independent signal (`agents/mean_reversion.py` — Bollinger
+    Band fade + RSI) through the same engine as Phase 2/7.
 
 ## Layout
 ```
