@@ -155,6 +155,17 @@ def log_trade_closed(
     conn.commit()
 
 
+def get_open_trades(conn: sqlite3.Connection) -> list[tuple[str, str]]:
+    """(symbol, direction) for every trade still open."""
+    rows = conn.execute("SELECT symbol, direction FROM trades WHERE status = 'open'").fetchall()
+    return [(r[0], r[1]) for r in rows]
+
+
+def get_open_trade_count(conn: sqlite3.Connection) -> int:
+    row = conn.execute("SELECT COUNT(*) FROM trades WHERE status = 'open'").fetchone()
+    return int(row[0])
+
+
 def get_realized_pnl_today(conn: sqlite3.Connection) -> float:
     """Sum of `profit` for trades closed today (UTC). 0.0 if none closed."""
     today = datetime.now(timezone.utc).date().isoformat()

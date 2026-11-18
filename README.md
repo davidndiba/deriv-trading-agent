@@ -37,6 +37,12 @@ Progress log: [docs/PROGRESS.md](docs/PROGRESS.md).
    account: every proposal needs an explicit y/n before anything is
    bought. Start with tiny demo stakes and watch it closely the first few
    times — see docs/DECISIONS.md for what's unverified in this phase.
+10. `python scripts/run_phase4_demo_trading.py` adds a concurrency cap, a
+    currency-correlation guard, and optional Telegram alerts (fill in
+    `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` to enable — leave blank to
+    skip). Telegram only ever notifies; the CLI y/n gate still decides.
+    Still demo-only, and this code existing doesn't replace the 2-4 week
+    clean demo run docs/PHASES.md asks for before Phase 5.
 
 ## Layout
 ```

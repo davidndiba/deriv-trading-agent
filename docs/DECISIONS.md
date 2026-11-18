@@ -10,6 +10,38 @@ Record any choice that isn't obvious from SPEC.md, with the reason.
 signal implementation cannot accidentally construct a CALL/PUT/DIGITMATCH
 request even by copy-pasting a Deriv doc example.
 
+## 2026-11-18 — Telegram is notify-only, never an approval channel
+docs/SPEC.md's own non-negotiables say "CLI y/n for v1; Telegram
+approve/reject can come later" — that's an explicit deferral, not an
+oversight. `tools/telegram_notifier.py` only ever sends alerts (trade
+opened/closed, kill-switch fired, correlation guard blocked a trade); it
+has no inbound path (no webhook, no getUpdates polling) and cannot
+influence whether a `buy` happens. Building an interactive approve/reject
+flow over Telegram would mean trusting an unauthenticated inbound webhook
+or a polling loop as a safety-critical control path, with zero ability to
+test that against a real bot in this sandbox — that's a bigger, separate
+decision than "Phase 4 hardening," so it stayed out of v1.
+
+## 2026-11-18 — Phase 4's guards are structural, not a substitute for the soak period
+docs/PHASES.md says Phase 4 is only *done* once Phase 3 has run clean on
+demo for 2-4 weeks. The concurrency cap and correlation guard in
+`scripts/run_phase4_demo_trading.py` are code that can be written and
+reviewed now, but they don't satisfy that requirement by existing — they
+reduce risk *within* a trading session, not across time. Phase 5 (real
+money) still requires the actual soak period to have happened, regardless
+of how hardened Phase 4's code is.
+
+## 2026-11-18 — Correlation guard is a currency-overlap heuristic, not real correlation
+`tools/exposure.py::currency_exposure()` splits a 6-letter Deriv forex
+symbol into base/quote currency codes and treats any shared currency as
+"correlated" when both positions are in the same direction. This is a
+blunt proxy for real price correlation (e.g. EUR/USD and GBP/USD do tend
+to move together when both are "long USD", but it's not a measured
+correlation coefficient). Good enough to catch the exact example in
+docs/SPEC.md ("don't go long 3 USD pairs at once"); a real correlation
+matrix from historical returns would be a reasonable future improvement,
+not required for Phase 4.
+
 ## 2026-11-18 — Phase 3 doesn't use deal cancellation
 `get_proposal()` always sets `limit_order: {take_profit, stop_loss}` on
 the proposal request itself (dollar P&L amounts — Deriv's own Multipliers

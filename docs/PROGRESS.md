@@ -2,6 +2,46 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 4 — Hardening, still demo-only (2026-11-18)
+- `config/settings.py`: added `MAX_CONCURRENT_CONTRACTS` (default 3),
+  `MAX_CORRELATED_SAME_DIRECTION` (default 1), and optional
+  `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`.
+- `tools/exposure.py`: currency-overlap correlation guard — splits a
+  forex symbol into base/quote currency codes (gold and synthetic
+  indices just match themselves) and flags a candidate trade as
+  correlated with an existing open position when they share a currency
+  and the same direction. This is the literal "don't go long 3 USD pairs
+  at once" example from docs/SPEC.md, not a measured correlation
+  coefficient — see docs/DECISIONS.md.
+- `storage/db.py`: added `get_open_trades()` and `get_open_trade_count()`.
+- `tools/telegram_notifier.py`: stdlib-only (urllib, no new dependency)
+  alerting. **Notify-only** — it cannot approve or reject a trade; the
+  CLI y/n gate from Phase 3 is unchanged and is still the only path to a
+  `buy` call. This was an explicit v1 deferral in docs/SPEC.md's own
+  non-negotiables, not something this phase changes.
+- `scripts/run_phase4_demo_trading.py`: Phase 3's flow plus the
+  concurrency cap and correlation guard checked before a signal is even
+  shown for approval, and Telegram alerts on trades opened/closed, the
+  kill-switch firing, and the correlation guard blocking a trade.
+  Refuses `ENV=live`, same as every prior phase.
+- Verified by direct execution in this sandbox (still no pip/venv here):
+  the new settings fields and their validation (stubbing out the
+  `dotenv` import, which isn't installed), all of `tools/exposure.py`'s
+  logic against hand-built open-trade scenarios, `get_open_trades`/
+  `get_open_trade_count` against the real SQLite functions, and the
+  Telegram notifier's request construction (and its disabled no-op path)
+  against a mocked `urlopen` — no real bot token involved.
+- **Not verified**: a real Telegram bot end-to-end (needs a real
+  `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` from your own BotFather setup),
+  and everything already flagged as unverified in Phase 3 still applies
+  (the live `proposal`/`buy`/`subscribe` calls).
+- **Phase 3 has not actually been run against a real demo account yet**
+  — this phase's guards don't change that. Per docs/PHASES.md, Phase 4
+  isn't *done* (i.e. real money shouldn't be on the table) until Phase 3
+  has run clean on demo for 2-4 weeks. Building this code now doesn't
+  satisfy that; only time and a clean track record do.
+- **Status: pushed for review.**
+
 ## Phase 3 — Demo paper trading with approval gate (2026-11-18)
 - `tools/deriv_client.py`: added `get_proposal` (MULTUP/MULTDOWN only —
   there is no way to pass another contract_type through this method),

@@ -34,6 +34,14 @@ class Settings:
     daily_loss_limit_pct: float
     blackout_dates: list[tuple[int, int]] = field(default_factory=list)
     symbols: list[str] = field(default_factory=list)
+    max_concurrent_contracts: int = 3
+    max_correlated_same_direction: int = 1
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+
+    @property
+    def telegram_enabled(self) -> bool:
+        return bool(self.telegram_bot_token and self.telegram_chat_id)
 
     @property
     def is_live(self) -> bool:
@@ -69,6 +77,15 @@ def load_settings() -> Settings:
         os.environ.get("SYMBOLS", "frxEURUSD,frxXAUUSD,1HZ100V")
     )
 
+    max_concurrent_contracts = int(os.environ.get("MAX_CONCURRENT_CONTRACTS", "3"))
+    max_correlated_same_direction = int(
+        os.environ.get("MAX_CORRELATED_SAME_DIRECTION", "1")
+    )
+    if max_concurrent_contracts < 1:
+        raise RuntimeError("MAX_CONCURRENT_CONTRACTS must be >= 1")
+    if max_correlated_same_direction < 1:
+        raise RuntimeError("MAX_CORRELATED_SAME_DIRECTION must be >= 1")
+
     return Settings(
         app_id=app_id,
         api_token=api_token,
@@ -77,4 +94,8 @@ def load_settings() -> Settings:
         daily_loss_limit_pct=daily_loss_limit_pct,
         blackout_dates=blackout_dates,
         symbols=symbols,
+        max_concurrent_contracts=max_concurrent_contracts,
+        max_correlated_same_direction=max_correlated_same_direction,
+        telegram_bot_token=os.environ.get("TELEGRAM_BOT_TOKEN", ""),
+        telegram_chat_id=os.environ.get("TELEGRAM_CHAT_ID", ""),
     )
