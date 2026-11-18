@@ -16,6 +16,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import _bootstrap  # noqa: F401
 from config.settings import load_settings
 from storage.db import get_connection, get_trades_closed_since
 from tools.reporting import build_performance_report

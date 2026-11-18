@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import sys
 
+import _bootstrap  # noqa: F401
 from config.settings import Settings, load_settings
 from storage.db import get_connection, log_correlation_matrix
 from tools.correlation_matrix import build_correlation_matrix, simple_returns

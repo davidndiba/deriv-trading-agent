@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import sys
 
+import _bootstrap  # noqa: F401
 from config.settings import Settings, load_settings
 from storage.db import get_connection, get_open_contract_ids, log_trade_closed
 from tools.deriv_client import DerivClient

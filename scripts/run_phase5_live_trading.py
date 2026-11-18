@@ -33,6 +33,7 @@ import sys
 from datetime import datetime, timezone
 from typing import Callable
 
+import _bootstrap  # noqa: F401
 from agents.risk import apply_live_stake_cap, build_risk_breakdown
 from agents.signals import generate_signal
 from config.settings import Settings, load_settings

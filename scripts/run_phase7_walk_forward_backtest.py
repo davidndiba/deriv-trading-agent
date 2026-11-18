@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import sys
 
+import _bootstrap  # noqa: F401
 from agents.signals import generate_signal
 from config.settings import Settings, load_settings
 from storage.db import get_connection, log_backtest_result

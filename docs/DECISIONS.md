@@ -2,6 +2,32 @@
 
 Record any choice that isn't obvious from SPEC.md, with the reason.
 
+## 2026-11-18 — scripts/_bootstrap.py over PYTHONPATH, a package install, or `python -m`
+`python scripts/run_phaseN.py` needs the repo root on `sys.path` to
+import `agents`/`config`/`schemas`/`storage`/`tools`, which it isn't by
+default (Python puts the script's own directory there instead). Three
+alternatives considered and rejected:
+- Requiring `PYTHONPATH=.` — works, but it's an easy-to-forget
+  environment detail the README would need to repeat 13 times, and a
+  plain `python scripts/run_phase1.py` (exactly what every doc example
+  and the user's own muscle memory will type) would keep silently
+  failing without it.
+- `pip install -e .` (turning the repo into an installed package) —
+  the cleaner long-term fix, but means adding a `pyproject.toml`/
+  `setup.py` and changing the install instructions for something that
+  doesn't otherwise need packaging; out of proportion to the bug.
+- `python -m scripts.run_phase1` — would work, but needs
+  `scripts/__init__.py` and changes every documented invocation in
+  README.md for no benefit over the alternative below.
+
+Chose a single `scripts/_bootstrap.py` that inserts the repo root onto
+`sys.path`, imported first (`import _bootstrap  # noqa: F401`) in each
+script. It's importable with zero setup because `scripts/` is already
+on `sys.path` by default — the same fact that causes the original bug
+is what makes this fix work without `PYTHONPATH` or a package install.
+`python scripts/run_phaseN.py` now works exactly as documented, from
+the repo root, with nothing else to remember.
+
 ## 2026-11-18 — Contract type is hard-restricted in code, not just by convention
 `tools/deriv_client.py` only exposes the calls needed for Multipliers
 (`proposal` with `contract_type=MULTUP/MULTDOWN`, `buy`, `sell`,

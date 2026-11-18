@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import sys
 
+import _bootstrap  # noqa: F401
 from agents.mean_reversion import generate_mean_reversion_signal
 from config.settings import Settings, load_settings
 from storage.db import get_connection, log_backtest_result

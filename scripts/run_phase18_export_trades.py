@@ -13,6 +13,7 @@ import argparse
 from datetime import datetime, timezone
 from pathlib import Path
 
+import _bootstrap  # noqa: F401
 from storage.db import get_connection, list_trades
 from tools.csv_export import trades_to_csv
 

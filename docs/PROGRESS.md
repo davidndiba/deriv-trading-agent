@@ -2,6 +2,29 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Fix — scripts/ couldn't import top-level packages when run directly (2026-11-18)
+First real end-to-end run against a live Deriv demo account (on the
+user's own machine, not this sandbox) surfaced a bug none of the 106
+pytest tests or CI catch: `python scripts/run_phase1.py` from the repo
+root fails with `ModuleNotFoundError: No module named 'agents'`, because
+Python puts the *script's own directory* on `sys.path`, not the repo
+root, so `agents`/`config`/`schemas`/`storage`/`tools` aren't
+importable. Worked around locally with `PYTHONPATH=.` during
+diagnosis; fixed properly by adding `scripts/_bootstrap.py` (inserts
+the repo root onto `sys.path`) and `import _bootstrap  # noqa: F401`
+as the first local import in all 13 scripts — see docs/DECISIONS.md
+for why this approach over the alternatives.
+
+Separately confirmed on the same run: `.env`, venv, and
+`pip install -r requirements.txt` all work correctly on a fresh Ubuntu
+24.04 machine once `python3.12-venv` is installed; all 106 tests pass
+there. `scripts/run_phase1.py` itself could not complete the live
+connection check — Deriv's `wss://ws.derivws.com` was returning HTTP
+520 (Cloudflare origin error) for every request at the time, confirmed
+with both the user's own app_id/token and Deriv's public demo app_id
+`1089`, which rules out a credentials problem. Treated as a transient
+outage on Deriv's side, not a bug here — retry once it recovers.
+
 ## Phase 19 — Demo-only auto-approve + continuous (--loop) operation (2026-11-18)
 Requested capability: run the demo soak unattended for weeks to build up
 a real track record before any January real-money decision. Needed
