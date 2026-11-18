@@ -17,8 +17,16 @@ routes that would need it. **This is the exact kind of bug this
 sandbox's missing `pip`/`venv` could never have surfaced** — every
 "verified by direct execution" note throughout this build covered only
 code that doesn't need installing, and a dependency conflict is
-invisible to that. Pushed; next CI run will confirm whether this was the
-only break.
+invisible to that.
+
+**Confirmed fixed**: run #9 (commit 070fb97) passed — "Success", 31s
+total, the `test` step itself ran 29s (long enough for a real
+`pip install` of the full dependency set, unlike the ~14s immediate
+resolver failures before it). This is the first time every
+pydantic/FastAPI/`python_deriv_api`-dependent module in this repo
+(`schemas/models.py`, `agents/signals.py`, `agents/risk.py`,
+`agents/mean_reversion.py`, and every test file that needed them) has
+actually been imported and run anywhere, not just reasoned through.
 
 ## Phase 13 — Daily/weekly performance report (2026-11-18)
 - `storage/db.py`: `get_trades_closed_since()` — every closed trade for
