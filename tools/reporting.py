@@ -6,6 +6,8 @@ raw SQL row.
 """
 from __future__ import annotations
 
+from tools.metrics import max_consecutive_losses, profit_factor, sharpe_ratio, sortino_ratio
+
 _SPARK_CHARS = "▁▂▃▄▅▆▇█"
 
 
@@ -49,10 +51,20 @@ def build_performance_report(trades: list[dict], period_label: str) -> str:
         running += t.get("profit") or 0.0
         equity_curve.append(running)
 
+    profits = [t.get("profit") or 0.0 for t in trades]
+    pf = profit_factor(profits)
+    pf_text = "∞" if pf == float("inf") else f"{pf:.2f}"
+
     lines.append(f"- Closed trades: {len(trades)}  (wins {len(wins)}, losses {len(losses)})")
     lines.append(f"- Win rate: {win_rate:.1%}")
     lines.append(f"- Total P&L: ${total_profit:.2f}")
     lines.append(f"- Equity curve: `{sparkline(equity_curve)}`")
+    lines.append("")
+    lines.append("## Risk-adjusted (per-trade, not annualized — see tools/metrics.py)")
+    lines.append(f"- Sharpe: {sharpe_ratio(profits):.2f}")
+    lines.append(f"- Sortino: {sortino_ratio(profits):.2f}")
+    lines.append(f"- Profit factor: {pf_text}")
+    lines.append(f"- Max consecutive losses: {max_consecutive_losses(profits)}")
     lines.append("")
 
     by_symbol: dict[str, list[dict]] = {}

@@ -39,6 +39,9 @@ def test_report_computes_totals_and_per_symbol_breakdown():
     assert "Total P&L: $25.00" in report
     assert "frxEURUSD: 2 trades, 1/2 won, $5.00" in report
     assert "frxXAUUSD: 1 trades, 1/1 won, $20.00" in report
+    assert "Profit factor: 6.00" in report  # gross profit 30 / gross loss 5
+    assert "Max consecutive losses: 1" in report
+    assert "Sharpe:" in report and "Sortino:" in report
 
 
 def test_report_fed_by_real_db_data(tmp_path):

@@ -2,6 +2,27 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 16 — Risk-adjusted performance metrics (2026-11-18)
+- `tools/metrics.py`: `sharpe_ratio()`, `sortino_ratio()`,
+  `profit_factor()`, `max_consecutive_losses()` — pure math over a
+  return series (dollar profits or R-multiples), no dependency.
+  Deliberately **not annualized**: an irregular trade sequence has no
+  fixed period to annualize against without guessing a trades-per-year
+  figure, so these report the raw per-trade ratio.
+- `tools/reporting.py::build_performance_report()`: now includes a
+  "Risk-adjusted" section (Sharpe, Sortino, profit factor, max
+  consecutive losses) computed from the same closed-trade profits
+  already feeding the win-rate/equity-curve numbers — so
+  `scripts/run_phase13_performance_report.py` gets this for free, no
+  script changes needed.
+- Verified by direct execution: each metric against hand-computed
+  values (including the zero-variance/no-downside/no-losses edge
+  cases), and the full report integration end-to-end (caught and fixed
+  a wrong expectation in my own first check — max consecutive losses
+  for a single loss is 1, not 0). Full regression across all 13
+  dependency-free test modules confirms nothing earlier broke.
+- **Status: pushed.**
+
 ## Phase 15 — Web dashboard (2026-11-18)
 Requested feature: "track up profits... analyze better." A visual view
 on top of the reporting API's existing JSON endpoints.
