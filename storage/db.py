@@ -57,15 +57,29 @@ CREATE TABLE IF NOT EXISTS trades (
     closed_at TEXT,
     sell_price REAL,
     profit REAL,
-    status TEXT NOT NULL DEFAULT 'open'  -- 'open' | 'sold' | 'won' | 'lost'
+    status TEXT NOT NULL DEFAULT 'open',  -- 'open' | 'sold' | 'won' | 'lost'
+    env TEXT NOT NULL DEFAULT 'demo'  -- 'demo' | 'live'
 );
 """
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """CREATE TABLE IF NOT EXISTS won't add a column to a table that
+    already exists on disk from an earlier phase's schema, so a local
+    trading_agent.db created before the `env` column was added needs an
+    explicit ALTER TABLE. Safe to run every time — it's a no-op once the
+    column exists."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(trades)")}
+    if "env" not in columns:
+        conn.execute("ALTER TABLE trades ADD COLUMN env TEXT NOT NULL DEFAULT 'demo'")
+        conn.commit()
 
 
 def get_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     conn.executescript(SCHEMA)
     conn.commit()
+    _migrate(conn)
     return conn
 
 
@@ -112,13 +126,14 @@ def log_trade_opened(
     take_profit: float,
     stop_loss: float,
     buy_price: float,
+    env: str = "demo",
 ) -> int:
     cur = conn.execute(
         """
         INSERT INTO trades (
             contract_id, symbol, direction, stake, multiplier,
-            take_profit, stop_loss, buy_price, opened_at, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')
+            take_profit, stop_loss, buy_price, opened_at, status, env
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)
         """,
         (
             contract_id,
@@ -130,6 +145,7 @@ def log_trade_opened(
             stop_loss,
             buy_price,
             datetime.now(timezone.utc).isoformat(),
+            env,
         ),
     )
     conn.commit()
@@ -155,26 +171,48 @@ def log_trade_closed(
     conn.commit()
 
 
-def get_open_trades(conn: sqlite3.Connection) -> list[tuple[str, str]]:
-    """(symbol, direction) for every trade still open."""
-    rows = conn.execute("SELECT symbol, direction FROM trades WHERE status = 'open'").fetchall()
+def get_open_trades(conn: sqlite3.Connection, env: str = "demo") -> list[tuple[str, str]]:
+    """(symbol, direction) for every trade still open in the given env.
+    Demo and live are separate Deriv accounts/balances entirely, so a
+    live run must never count demo positions against its concurrency or
+    correlation limits (or vice versa)."""
+    rows = conn.execute(
+        "SELECT symbol, direction FROM trades WHERE status = 'open' AND env = ?",
+        (env,),
+    ).fetchall()
     return [(r[0], r[1]) for r in rows]
 
 
-def get_open_trade_count(conn: sqlite3.Connection) -> int:
-    row = conn.execute("SELECT COUNT(*) FROM trades WHERE status = 'open'").fetchone()
+def get_open_trade_count(conn: sqlite3.Connection, env: str = "demo") -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) FROM trades WHERE status = 'open' AND env = ?", (env,)
+    ).fetchone()
     return int(row[0])
 
 
-def get_realized_pnl_today(conn: sqlite3.Connection) -> float:
-    """Sum of `profit` for trades closed today (UTC). 0.0 if none closed."""
+def get_realized_pnl_today(conn: sqlite3.Connection, env: str = "demo") -> float:
+    """Sum of `profit` for trades closed today (UTC) in the given env.
+    0.0 if none closed. Scoped by env for the same reason as
+    get_open_trades — demo and live P&L must never be mixed into one
+    kill-switch check."""
     today = datetime.now(timezone.utc).date().isoformat()
     row = conn.execute(
         "SELECT COALESCE(SUM(profit), 0.0) FROM trades "
-        "WHERE closed_at IS NOT NULL AND substr(closed_at, 1, 10) = ?",
-        (today,),
+        "WHERE closed_at IS NOT NULL AND substr(closed_at, 1, 10) = ? AND env = ?",
+        (today, env),
     ).fetchone()
     return float(row[0])
+
+
+def get_demo_track_record(conn: sqlite3.Connection) -> tuple[int, str | None]:
+    """(closed demo trade count, earliest demo trade's opened_at or None).
+    Always scoped to env='demo' regardless of what the caller is running
+    as — this is specifically the pre-live soak-period check."""
+    row = conn.execute(
+        "SELECT COUNT(*), MIN(opened_at) FROM trades "
+        "WHERE env = 'demo' AND status IN ('won', 'lost')"
+    ).fetchone()
+    return int(row[0]), row[1]
 
 
 def log_backtest_result(

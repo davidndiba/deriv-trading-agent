@@ -38,6 +38,9 @@ class Settings:
     max_correlated_same_direction: int = 1
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    live_max_stake_usd: float = 1.0
+    live_min_demo_soak_days: int = 14
+    live_min_demo_trades: int = 20
 
     @property
     def telegram_enabled(self) -> bool:
@@ -86,6 +89,16 @@ def load_settings() -> Settings:
     if max_correlated_same_direction < 1:
         raise RuntimeError("MAX_CORRELATED_SAME_DIRECTION must be >= 1")
 
+    live_max_stake_usd = float(os.environ.get("LIVE_MAX_STAKE_USD", "1.0"))
+    live_min_demo_soak_days = int(os.environ.get("LIVE_MIN_DEMO_SOAK_DAYS", "14"))
+    live_min_demo_trades = int(os.environ.get("LIVE_MIN_DEMO_TRADES", "20"))
+    if live_max_stake_usd <= 0:
+        raise RuntimeError("LIVE_MAX_STAKE_USD must be > 0")
+    if live_min_demo_soak_days < 1:
+        raise RuntimeError("LIVE_MIN_DEMO_SOAK_DAYS must be >= 1")
+    if live_min_demo_trades < 1:
+        raise RuntimeError("LIVE_MIN_DEMO_TRADES must be >= 1")
+
     return Settings(
         app_id=app_id,
         api_token=api_token,
@@ -98,4 +111,7 @@ def load_settings() -> Settings:
         max_correlated_same_direction=max_correlated_same_direction,
         telegram_bot_token=os.environ.get("TELEGRAM_BOT_TOKEN", ""),
         telegram_chat_id=os.environ.get("TELEGRAM_CHAT_ID", ""),
+        live_max_stake_usd=live_max_stake_usd,
+        live_min_demo_soak_days=live_min_demo_soak_days,
+        live_min_demo_trades=live_min_demo_trades,
     )

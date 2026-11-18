@@ -43,6 +43,16 @@ Progress log: [docs/PROGRESS.md](docs/PROGRESS.md).
     skip). Telegram only ever notifies; the CLI y/n gate still decides.
     Still demo-only, and this code existing doesn't replace the 2-4 week
     clean demo run docs/PHASES.md asks for before Phase 5.
+11. `scripts/run_phase5_live_trading.py` is the **only** script here that
+    will touch a real account. It refuses to run unless `ENV=live`, then
+    refuses further unless your local demo trade log already shows
+    `LIVE_MIN_DEMO_TRADES`+ closed trades spanning
+    `LIVE_MIN_DEMO_SOAK_DAYS`+ days — there's no flag to skip that check.
+    Past that it asks you to type an exact confirmation phrase, then
+    still asks a per-trade y/n like every other phase, with stake capped
+    at `LIVE_MAX_STAKE_USD` on top of the normal risk-% sizing. Don't run
+    this until you've actually put in the demo time — the code enforcing
+    that check is not a substitute for it.
 
 ## Layout
 ```

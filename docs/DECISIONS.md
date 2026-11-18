@@ -10,6 +10,39 @@ Record any choice that isn't obvious from SPEC.md, with the reason.
 signal implementation cannot accidentally construct a CALL/PUT/DIGITMATCH
 request even by copy-pasting a Deriv doc example.
 
+## 2026-11-18 — Phase 5's demo-soak check has no override flag
+`scripts/run_phase5_live_trading.py` refuses to proceed past its
+confirmation banner unless the local trade log shows at least
+`LIVE_MIN_DEMO_TRADES` closed demo trades spanning at least
+`LIVE_MIN_DEMO_SOAK_DAYS` days (both from `storage.db.get_demo_track_record`,
+always scoped to `env='demo'` regardless of what's being run). There is
+deliberately no env var or CLI flag to skip this check. The only way
+around it is editing this file directly — a conscious, visible act, not
+a config toggle that could be flipped by habit or under pressure to "just
+get it live." This mirrors docs/SPEC.md's own non-negotiable: "No
+real-money contracts before Phase 3 has run clean on demo for at least
+2-4 weeks."
+
+## 2026-11-18 — Demo and live trades are isolated end-to-end
+`trades.env` ('demo' | 'live') exists so `get_open_trades`,
+`get_open_trade_count`, and `get_realized_pnl_today` can be scoped per
+env. Without this, a live run's kill-switch/concurrency/correlation
+guards would be polluted by demo history (or vice versa) — demo and live
+are different Deriv accounts with different balances, so mixing their
+P&L or position counts would make every Phase 4/5 guard meaningless.
+`get_connection()` migrates a pre-existing local `trading_agent.db` (one
+created before this column existed) via `ALTER TABLE ... ADD COLUMN`,
+defaulting old rows to `'demo'` — verified against a hand-built
+pre-migration database in this sandbox (see docs/PROGRESS.md).
+
+## 2026-11-18 — Live stake cap scales max_gain, not risk_reward_ratio
+`agents/risk.py::apply_live_stake_cap()` clamps `stake`/`max_loss` to
+`LIVE_MAX_STAKE_USD` and scales `max_gain` by the same factor, so the
+displayed R:R stays accurate. It deliberately does not touch
+`multiplier`, since that was derived purely from the stop-loss distance
+(schemas/models.py), not from stake — rescaling it would quietly change
+the stop-loss distance the signal actually calculated.
+
 ## 2026-11-18 — Telegram is notify-only, never an approval channel
 docs/SPEC.md's own non-negotiables say "CLI y/n for v1; Telegram
 approve/reject can come later" — that's an explicit deferral, not an

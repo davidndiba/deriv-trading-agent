@@ -2,6 +2,53 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 5 — Real-money cutover (2026-11-18)
+- `config/settings.py`: `LIVE_MAX_STAKE_USD` (default 1.0),
+  `LIVE_MIN_DEMO_SOAK_DAYS` (default 14), `LIVE_MIN_DEMO_TRADES`
+  (default 20).
+- `storage/db.py`: added an `env` ('demo'|'live') column to `trades`,
+  with an `ALTER TABLE` migration in `get_connection()` for any
+  pre-existing local `trading_agent.db` from an earlier phase.
+  `get_open_trades`/`get_open_trade_count`/`get_realized_pnl_today` now
+  take an `env` parameter (defaulting to `'demo'`, so every Phase 3/4
+  call site is unchanged) so a live run's guards are never polluted by
+  demo history, and demo's aren't polluted by live. Added
+  `get_demo_track_record()`, always scoped to `env='demo'` regardless of
+  caller, for the Phase 5 soak-period gate.
+- `agents/risk.py`: `apply_live_stake_cap()` clamps stake to
+  `LIVE_MAX_STAKE_USD` and scales `max_gain` by the same factor, keeping
+  R:R accurate ("smallest viable stake first").
+- `scripts/run_phase5_live_trading.py` — **the only script in this repo
+  that will run against a live account**; every other script refuses
+  `ENV=live` outright, this one refuses anything else. Gates, in order:
+  (1) `ENV=live` required, (2) a demo track-record check with no
+  override flag (see docs/DECISIONS.md), (3) a second confirmation
+  requiring an exact typed phrase, separate from the `ENV=live` flag
+  itself, (4) the same per-trade CLI y/n every other phase requires —
+  unchanged, (5) the live stake cap applied on top of the normal
+  risk-% sizing. Daily kill-switch, concurrency cap, correlation guard,
+  and Telegram alerts are Phase 4's logic, scoped to `env='live'`.
+- Verified in this sandbox by direct execution: the schema migration
+  against a hand-built pre-migration database, env-scoped isolation
+  between demo and live P&L/open-position counts (a demo loss does not
+  trip a live kill-switch and vice versa), the stake-cap math preserving
+  R:R, and all four soak-period gate scenarios in
+  `tests/test_live_cutover_gate.py` — including confirming that live
+  trades never count toward the demo track record.
+- **Not verified**: everything already flagged as unverified in Phases
+  3-4 (the live Deriv `proposal`/`buy`/`subscribe` calls against a real
+  session) still applies here, now for real money. The confirmation-
+  phrase and approval-prompt functions themselves couldn't be executed
+  in this sandbox (the script transitively imports pydantic, which isn't
+  installable here) — read them yourself before trusting this script;
+  they're short.
+- **This does not mean Phase 3/4 have actually run clean on demo for
+  2-4 weeks** — they haven't been run against a real account at all yet.
+  The soak-period gate exists so the script itself refuses to proceed
+  until that's genuinely true, not so that building this code substitutes
+  for it.
+- **Status: pushed for review.**
+
 ## Phase 4 — Hardening, still demo-only (2026-11-18)
 - `config/settings.py`: added `MAX_CONCURRENT_CONTRACTS` (default 3),
   `MAX_CORRELATED_SAME_DIRECTION` (default 1), and optional
