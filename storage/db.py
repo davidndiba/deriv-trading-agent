@@ -215,6 +215,52 @@ def get_demo_track_record(conn: sqlite3.Connection) -> tuple[int, str | None]:
     return int(row[0]), row[1]
 
 
+def _rows_as_dicts(conn: sqlite3.Connection, sql: str, params: tuple = ()) -> list[dict]:
+    """Read-only helper for the FastAPI layer. Sets row_factory on this
+    connection so results come back as plain dicts; safe to call on a
+    connection that's about to be closed anyway (every api/main.py
+    endpoint opens a fresh connection per request)."""
+    conn.row_factory = sqlite3.Row
+    return [dict(row) for row in conn.execute(sql, params).fetchall()]
+
+
+def list_proposals(conn: sqlite3.Connection, limit: int = 50) -> list[dict]:
+    return _rows_as_dicts(
+        conn,
+        "SELECT id, created_at, symbol, direction, reason, balance, stake, "
+        "multiplier, take_profit, stop_loss, max_loss, max_gain, "
+        "risk_reward_ratio, blackout_halved, approved FROM proposals "
+        "ORDER BY id DESC LIMIT ?",
+        (limit,),
+    )
+
+
+def list_trades(
+    conn: sqlite3.Connection, env: str = "demo", status: str | None = None, limit: int = 50
+) -> list[dict]:
+    if status is not None:
+        return _rows_as_dicts(
+            conn,
+            "SELECT * FROM trades WHERE env = ? AND status = ? ORDER BY id DESC LIMIT ?",
+            (env, status, limit),
+        )
+    return _rows_as_dicts(
+        conn, "SELECT * FROM trades WHERE env = ? ORDER BY id DESC LIMIT ?", (env, limit)
+    )
+
+
+def list_backtests(
+    conn: sqlite3.Connection, symbol: str | None = None, limit: int = 50
+) -> list[dict]:
+    if symbol is not None:
+        return _rows_as_dicts(
+            conn,
+            "SELECT * FROM backtests WHERE symbol = ? ORDER BY id DESC LIMIT ?",
+            (symbol, limit),
+        )
+    return _rows_as_dicts(conn, "SELECT * FROM backtests ORDER BY id DESC LIMIT ?", (limit,))
+
+
 def log_backtest_result(
     conn: sqlite3.Connection, candle_count: int, report
 ) -> int:  # report: tools.backtest.BacktestReport

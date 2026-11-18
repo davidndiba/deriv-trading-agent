@@ -19,6 +19,12 @@ Progress log: [docs/PROGRESS.md](docs/PROGRESS.md).
   second interactive confirmation.
 - Daily kill-switch + blackout-date stake halving are always active.
 
+## Reporting API
+`uvicorn api.main:app --reload` serves read-only reporting over the same
+SQLite log the CLI scripts write to: `/proposals`, `/trades`,
+`/trades/pnl/today`, `/backtests`, `/health`. No endpoint can propose,
+approve, or buy anything — that stays behind each script's CLI y/n gate.
+
 ## Setup
 1. Register an app at https://api.deriv.com to get an `app_id`.
 2. Create a Deriv **demo** account and generate an API token scoped to

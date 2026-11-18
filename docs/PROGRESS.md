@@ -2,6 +2,28 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Cross-cutting — Read-only reporting API (2026-11-18)
+Closes out a Phase 0 deliverable that was left as just a health check:
+docs/SPEC.md asks for "FastAPI service wrapping the agent's internals...
+instead of trading logic getting reimplemented" elsewhere. Not a new
+numbered phase — it reports on state the existing phases already produce,
+it doesn't add trading behavior.
+- `storage/db.py`: `list_proposals`, `list_trades` (filterable by
+  `env`/`status`), `list_backtests` (filterable by `symbol`).
+- `api/main.py`: `GET /proposals`, `GET /trades`, `GET /trades/pnl/today`,
+  `GET /backtests`, alongside the existing `/health`. **Deliberately
+  read-only** — there is no endpoint that proposes, approves, or buys
+  anything. The CLI y/n gate in every trading script stays the only path
+  to a `buy` call; an API that could trigger one would undermine that.
+- Verified by direct execution (still no pip/venv in this sandbox to run
+  FastAPI itself): all four query functions against hand-built proposal/
+  trade/backtest rows, including env/status filtering and limit
+  enforcement.
+- **Not verified**: the FastAPI routes themselves (request/response
+  wiring, query-param validation) — only the storage-layer functions
+  they call. Run `uvicorn api.main:app --reload` yourself once
+  dependencies are installed and hit `/health` first.
+
 ## Phase 5 — Real-money cutover (2026-11-18)
 - `config/settings.py`: `LIVE_MAX_STAKE_USD` (default 1.0),
   `LIVE_MIN_DEMO_SOAK_DAYS` (default 14), `LIVE_MIN_DEMO_TRADES`
