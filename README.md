@@ -33,6 +33,10 @@ Progress log: [docs/PROGRESS.md](docs/PROGRESS.md).
 8. `python scripts/run_phase2_backtest.py` to backtest that signal against
    5000 historical candles per symbol and print win rate / avg R / max
    drawdown (still no contracts bought).
+9. `python scripts/run_phase3_demo_trading.py` to paper-trade on your demo
+   account: every proposal needs an explicit y/n before anything is
+   bought. Start with tiny demo stakes and watch it closely the first few
+   times — see docs/DECISIONS.md for what's unverified in this phase.
 
 ## Layout
 ```

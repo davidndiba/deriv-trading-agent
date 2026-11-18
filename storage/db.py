@@ -1,5 +1,4 @@
-"""SQLite logging for signals/proposals/backtests. No trade-execution
-tables yet — those arrive in Phase 3 (buy/sell confirmations)."""
+"""SQLite logging for signals/proposals/backtests/trades."""
 from __future__ import annotations
 
 import sqlite3
@@ -43,6 +42,23 @@ CREATE TABLE IF NOT EXISTS backtests (
     max_drawdown_r REAL NOT NULL,
     needs_audit INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS trades (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contract_id INTEGER NOT NULL UNIQUE,
+    symbol TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    stake REAL NOT NULL,
+    multiplier INTEGER NOT NULL,
+    take_profit REAL NOT NULL,
+    stop_loss REAL NOT NULL,
+    buy_price REAL NOT NULL,
+    opened_at TEXT NOT NULL,
+    closed_at TEXT,
+    sell_price REAL,
+    profit REAL,
+    status TEXT NOT NULL DEFAULT 'open'  -- 'open' | 'sold' | 'won' | 'lost'
+);
 """
 
 
@@ -83,6 +99,71 @@ def log_proposal(conn: sqlite3.Connection, proposal) -> int:  # TradeProposal
     )
     conn.commit()
     return cur.lastrowid
+
+
+def log_trade_opened(
+    conn: sqlite3.Connection,
+    *,
+    contract_id: int,
+    symbol: str,
+    direction: str,
+    stake: float,
+    multiplier: int,
+    take_profit: float,
+    stop_loss: float,
+    buy_price: float,
+) -> int:
+    cur = conn.execute(
+        """
+        INSERT INTO trades (
+            contract_id, symbol, direction, stake, multiplier,
+            take_profit, stop_loss, buy_price, opened_at, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')
+        """,
+        (
+            contract_id,
+            symbol,
+            direction,
+            stake,
+            multiplier,
+            take_profit,
+            stop_loss,
+            buy_price,
+            datetime.now(timezone.utc).isoformat(),
+        ),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def log_trade_closed(
+    conn: sqlite3.Connection,
+    *,
+    contract_id: int,
+    sell_price: float,
+    profit: float,
+    status: str,
+) -> None:
+    conn.execute(
+        """
+        UPDATE trades
+        SET closed_at = ?, sell_price = ?, profit = ?, status = ?
+        WHERE contract_id = ?
+        """,
+        (datetime.now(timezone.utc).isoformat(), sell_price, profit, status, contract_id),
+    )
+    conn.commit()
+
+
+def get_realized_pnl_today(conn: sqlite3.Connection) -> float:
+    """Sum of `profit` for trades closed today (UTC). 0.0 if none closed."""
+    today = datetime.now(timezone.utc).date().isoformat()
+    row = conn.execute(
+        "SELECT COALESCE(SUM(profit), 0.0) FROM trades "
+        "WHERE closed_at IS NOT NULL AND substr(closed_at, 1, 10) = ?",
+        (today,),
+    ).fetchone()
+    return float(row[0])
 
 
 def log_backtest_result(

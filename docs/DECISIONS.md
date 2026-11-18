@@ -10,6 +10,32 @@ Record any choice that isn't obvious from SPEC.md, with the reason.
 signal implementation cannot accidentally construct a CALL/PUT/DIGITMATCH
 request even by copy-pasting a Deriv doc example.
 
+## 2026-11-18 — Phase 3 doesn't use deal cancellation
+`get_proposal()` always sets `limit_order: {take_profit, stop_loss}` on
+the proposal request itself (dollar P&L amounts — Deriv's own Multipliers
+semantics for `limit_order`, matching `RiskBreakdown.max_gain`/`max_loss`
+exactly). Deal cancellation is never requested, so the edge case in
+docs/SPEC.md ("deal cancellation and take-profit can't both be set at
+open... add take-profit via `contract_update` only after the cancellation
+window expires") doesn't apply to v1. `contract_update` still exists on
+`DerivClient` for later use (e.g. tightening a stop after entry), just not
+exercised by the Phase 3 script itself.
+
+## 2026-11-18 — Phase 3's Deriv call shapes are verified against docs, not a live session
+This sandbox can't install `python_deriv_api` or hold a real demo session,
+so `tools/deriv_client.py`'s `get_proposal`/`buy_contract`/`sell_contract`/
+`contract_update`/`subscribe_open_contract` request shapes were checked
+against the library's own usage examples
+(github.com/deriv-com/python-deriv-api/blob/master/docs/usage_examples.md)
+rather than executed. Response field names (`proposal.id`, `proposal.ask_price`,
+`buy.contract_id`, `buy.buy_price`, `proposal_open_contract.status/profit/
+is_sold/sell_price`) are standard Deriv API fields from documentation, but
+unverified end-to-end here. `scripts/run_phase3_demo_trading.py` wraps the
+propose/buy calls in a broad `except Exception` specifically because it's
+unknown whether this library raises on an API error response or returns an
+`{"error": ...}` dict — run it against your own demo account and tighten
+that except clause once you've seen the actual failure mode.
+
 ## 2026-11-18 — `types/` renamed to `schemas/`
 The spec's suggested layout names a `types/` directory. A top-level Python
 package literally named `types` shadows the standard-library `types` module

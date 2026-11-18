@@ -2,6 +2,43 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 3 — Demo paper trading with approval gate (2026-11-18)
+- `tools/deriv_client.py`: added `get_proposal` (MULTUP/MULTDOWN only —
+  there is no way to pass another contract_type through this method),
+  `buy_contract`, `sell_contract`, `contract_update`, and
+  `subscribe_open_contract`. Call shapes verified against the official
+  `python-deriv-api` usage examples (see docs/DECISIONS.md) since this
+  sandbox can't install the library or hold a real session.
+  `limit_order.take_profit`/`stop_loss` are dollar amounts, which line up
+  exactly with `RiskBreakdown.max_gain`/`max_loss` — no unit conversion
+  needed between the risk model and the live order.
+- `storage/db.py`: added a `trades` table, `log_trade_opened()`,
+  `log_trade_closed()`, and `get_realized_pnl_today()` for the daily
+  kill-switch.
+- `scripts/run_phase3_demo_trading.py`: for each symbol with a signal,
+  prints the full two-sided risk/reward breakdown, asks for an explicit
+  y/n (`default_approval_prompt`, injectable for testing), logs the
+  decision whether approved or rejected, and only calls `buy` on
+  approval. Checks the daily kill-switch (realized loss today vs
+  `daily_loss_limit_pct * balance`) before proposing anything. Every
+  bought contract is monitored via a `proposal_open_contract` subscription
+  (not polled) until it closes, and the close is logged. Refuses to run
+  with `ENV=live`.
+- Verified in this sandbox by direct execution (still no pip/venv here):
+  the daily kill-switch threshold arithmetic against six hand-picked
+  realized-P&L values, and `tests/test_daily_kill_switch.py`'s three
+  scenarios (no losses yet, losses crossing the limit, net winner despite
+  one losing trade) against the real `storage/db.py` functions — these
+  have no pydantic dependency so they ran for real, not just by
+  inspection.
+- **Not verified**: the actual Deriv `proposal`/`buy`/`subscribe` calls
+  against a live demo session, and whether `python_deriv_api` raises on
+  an API error response or returns an `{"error": ...}` dict (the script
+  currently handles both defensively — see docs/DECISIONS.md). Test this
+  against your own demo account with small stakes before trusting it,
+  and expect to need a few fixes once you see real responses.
+- **Status: pushed for review.**
+
 ## Phase 2 — Backtest validation (2026-11-18)
 - `tools/strategy_params.py`: pulled `ATR_STOP_MULTIPLE`/`REWARD_RISK_RATIO`
   out of `agents/risk.py` into their own dependency-free module so the
