@@ -3,14 +3,18 @@ historical returns — the measured number docs/DECISIONS.md flagged as a
 reasonable future improvement over tools/exposure.py's currency-overlap
 heuristic. Pure Python, no dependency.
 
-This is a standalone analysis tool for now
-(scripts/run_phase17_correlation_matrix.py computes, prints, and logs
-it). It is NOT wired into the live Phase 4/5 correlation guard, which
-still uses the currency-overlap heuristic — see docs/DECISIONS.md for
-why adopting it there is a separate decision from building it.
+scripts/run_phase17_correlation_matrix.py computes, prints, and logs it
+as a standalone analysis run. scripts/run_phase{4,5}_*.py optionally
+(opt-in via USE_REAL_CORRELATION_MATRIX, off by default) read the most
+recently logged run and apply correlated_by_matrix() alongside — not
+instead of — the currency-overlap heuristic, falling back to the
+heuristic alone if no matrix has been logged yet or the logged one is
+older than CORRELATION_MATRIX_MAX_AGE_HOURS. See docs/DECISIONS.md for
+why this stays opt-in and additive rather than replacing the heuristic.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Protocol
 
 
@@ -112,3 +116,21 @@ def correlated_by_matrix(
         if (corr > 0 and same_side) or (corr < 0 and not same_side):
             matches.append(symbol)
     return matches
+
+
+def is_matrix_stale(
+    computed_at: str | None, max_age_hours: int, now: datetime | None = None
+) -> bool:
+    """True if computed_at is missing entirely, or older than
+    max_age_hours. A caller deciding whether to trust a logged matrix
+    for a live trading run should treat "stale" and "missing" the same
+    way: fall back to the heuristic rather than trust a number that
+    might no longer reflect current market behavior."""
+    if computed_at is None:
+        return True
+    when = now or datetime.now(timezone.utc)
+    parsed = datetime.fromisoformat(computed_at)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    age_hours = (when - parsed).total_seconds() / 3600
+    return age_hours > max_age_hours

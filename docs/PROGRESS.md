@@ -2,6 +2,39 @@
 
 Newest entry first. One entry per phase commit/push.
 
+## Phase 17 follow-up — Real correlation matrix wired into the live guard (2026-11-18)
+Resolves the three questions Phase 17's own decision note left open —
+see docs/DECISIONS.md for the reasoning behind each.
+- `storage/db.py`: `get_latest_correlation_matrix_with_timestamp()` —
+  same as `get_latest_correlation_matrix()` plus the run's own
+  `computed_at`, for a caller that needs to judge staleness.
+- `tools/correlation_matrix.py`: `is_matrix_stale()` — missing or older
+  than a configurable age counts as stale, both treated identically by
+  callers (fall back to the heuristic, never trust a number that might
+  be outdated).
+- `config/settings.py`: `USE_REAL_CORRELATION_MATRIX` (**default
+  false** — unlike the news blackout, this has an operational
+  dependency the user must maintain, so it stays invisible-by-default
+  rather than silently doing nothing for anyone who hasn't run Phase 17
+  yet), `CORRELATION_MATRIX_MAX_AGE_HOURS` (default 24),
+  `CORRELATION_MATRIX_THRESHOLD` (default 0.7).
+- `scripts/run_phase{4,5}_*.py`: when enabled, the latest logged matrix
+  is read once per run (not recomputed); if stale or missing, the run
+  prints why and falls back to the currency-overlap heuristic alone.
+  Otherwise `correlated_by_matrix()` runs as an **additional** check
+  alongside the existing heuristic — either one flagging a pair is
+  enough to skip that trade.
+- Verified by direct execution: `is_matrix_stale()` against boundary
+  conditions (exactly at the age limit, just over, missing, and a
+  naive/no-tzinfo timestamp like an older sqlite row might have) and
+  `get_latest_correlation_matrix_with_timestamp()` against real DB data.
+  The integration logic inside `run_phase4`/`run_phase5` themselves
+  needs pydantic (same sandbox limitation as every trading script) —
+  reviewed carefully rather than executed, consistent with every other
+  guard wired into those two scripts. Full regression across all 15
+  dependency-free test modules confirms nothing earlier broke.
+- **Status: pushed.**
+
 ## Phase 17 — Real correlation matrix (2026-11-18)
 Replaces the "reasonable future improvement" flagged back in the Phase 4
 correlation-guard decision: `tools/exposure.py`'s currency-overlap

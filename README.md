@@ -96,9 +96,13 @@ default (`NEWS_BLACKOUT_ENABLED=true`); see `.env.example`.
     offline. Saves to `reports/` (gitignored) and can push the same text
     through Telegram.
 18. `python scripts/run_phase17_correlation_matrix.py` computes and logs
-    actual price correlation between your configured symbols. Analysis
-    only for now — not wired into the live correlation guard yet, which
-    still uses the currency-overlap heuristic.
+    actual price correlation between your configured symbols. Run this
+    periodically (cron, or by hand) to keep it fresh — the trading
+    scripts read whatever was last logged, they don't recompute it.
+    Set `USE_REAL_CORRELATION_MATRIX=true` to have Phase 4/5 apply it as
+    a second, additive check alongside the currency-overlap heuristic; a
+    missing or stale (`CORRELATION_MATRIX_MAX_AGE_HOURS`) matrix falls
+    back to the heuristic alone rather than blocking trading on its own.
 
 ## Layout
 ```

@@ -45,6 +45,9 @@ class Settings:
     news_blackout_minutes_before: int = 30
     news_blackout_minutes_after: int = 30
     news_blackout_min_impact: str = "High"
+    use_real_correlation_matrix: bool = False
+    correlation_matrix_max_age_hours: int = 24
+    correlation_matrix_threshold: float = 0.7
 
     @property
     def telegram_enabled(self) -> bool:
@@ -114,6 +117,20 @@ def load_settings() -> Settings:
     if news_blackout_min_impact not in ("Low", "Medium", "High"):
         raise RuntimeError("NEWS_BLACKOUT_MIN_IMPACT must be Low, Medium, or High")
 
+    use_real_correlation_matrix = os.environ.get(
+        "USE_REAL_CORRELATION_MATRIX", "false"
+    ).strip().lower() in ("true", "1", "yes")
+    correlation_matrix_max_age_hours = int(
+        os.environ.get("CORRELATION_MATRIX_MAX_AGE_HOURS", "24")
+    )
+    correlation_matrix_threshold = float(
+        os.environ.get("CORRELATION_MATRIX_THRESHOLD", "0.7")
+    )
+    if correlation_matrix_max_age_hours < 1:
+        raise RuntimeError("CORRELATION_MATRIX_MAX_AGE_HOURS must be >= 1")
+    if not (0 < correlation_matrix_threshold <= 1):
+        raise RuntimeError("CORRELATION_MATRIX_THRESHOLD must be between 0 and 1")
+
     return Settings(
         app_id=app_id,
         api_token=api_token,
@@ -133,4 +150,7 @@ def load_settings() -> Settings:
         news_blackout_minutes_before=news_blackout_minutes_before,
         news_blackout_minutes_after=news_blackout_minutes_after,
         news_blackout_min_impact=news_blackout_min_impact,
+        use_real_correlation_matrix=use_real_correlation_matrix,
+        correlation_matrix_max_age_hours=correlation_matrix_max_age_hours,
+        correlation_matrix_threshold=correlation_matrix_threshold,
     )

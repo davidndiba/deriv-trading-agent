@@ -10,21 +10,37 @@ Record any choice that isn't obvious from SPEC.md, with the reason.
 signal implementation cannot accidentally construct a CALL/PUT/DIGITMATCH
 request even by copy-pasting a Deriv doc example.
 
-## 2026-11-18 — Real correlation matrix is built, not yet wired into the live guard
+## 2026-11-18 — Real correlation matrix is now wired in, additively and opt-in
 `tools/correlation_matrix.py` and `scripts/run_phase17_correlation_matrix.py`
 compute and log an actual Pearson correlation between symbols — the
 "reasonable future improvement" flagged in the Phase 4 correlation-guard
-decision above, now built. It's deliberately standalone for now, same
-pattern as Phase 9's multi-timeframe filter: `tools/exposure.py`'s
-currency-overlap heuristic is still what `scripts/run_phase{4,5}_*.py`
-actually use. Wiring the real matrix into the live guard means deciding
-things this script doesn't decide for you — how stale a stored matrix
-is allowed to get before a trading run refuses to trust it, what
-candle window and threshold to standardize on, whether to recompute it
-every run or read the last logged one — and getting those wrong in a
-safety-critical guard is worse than leaving the (already-conservative)
-heuristic in place a little longer. Look at a few runs of
-`run_phase17_correlation_matrix.py` first.
+decision above. It started standalone (Phase 17) and was later wired
+into `scripts/run_phase{4,5}_*.py`, resolving the three open questions
+from that decision:
+- **Staleness**: a logged matrix older than `CORRELATION_MATRIX_MAX_AGE_HOURS`
+  (default 24) is treated exactly like a missing one — `is_matrix_stale()`
+  — rather than trusted indefinitely.
+- **Recompute vs. read logged**: read the logged one
+  (`get_latest_correlation_matrix_with_timestamp()`), not recomputed
+  every trading run. Correlation is slow-moving; recomputing it inside
+  the already-verified per-symbol trading loop would mean restructuring
+  that loop to fetch every symbol's candles up front instead of one at a
+  time, for a property that doesn't need fresh-every-run data. You keep
+  it current by running `run_phase17_correlation_matrix.py` periodically
+  (cron, or by hand) — the trading scripts just read what's there.
+- **Candle window and threshold**: standardized on Phase 17's own
+  defaults, exposed as `CORRELATION_MATRIX_THRESHOLD` (default 0.7).
+
+It's **opt-in** (`USE_REAL_CORRELATION_MATRIX=false` by default) and
+**additive**, not a replacement for the currency-overlap heuristic — a
+trade is blocked if *either* guard flags it. This differs from the news
+blackout's "on by default" choice: news blackout only ever needs the
+free calendar feed to be reachable, with a safe fail-closed fallback
+(block trading) if it isn't. The correlation matrix has an operational
+dependency the user has to actively maintain (periodically running Phase
+17), so defaulting it on would mean the guard silently does nothing for
+anyone who hasn't established that habit — opt-in makes that dependency
+visible instead of invisible.
 
 ## 2026-11-18 — News blackout guard defaults to ON, unlike every opt-in config before it
 Every other configurable guard in this repo (concurrency cap,

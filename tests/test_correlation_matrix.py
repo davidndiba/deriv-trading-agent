@@ -1,9 +1,12 @@
 """tools/correlation_matrix.py has no third-party dependency, so this
 runs directly in any environment."""
+from datetime import datetime, timedelta, timezone
+
 from tools.correlation_matrix import (
     build_correlation_matrix,
     correlated_by_matrix,
     get_correlation,
+    is_matrix_stale,
     pearson_correlation,
     simple_returns,
 )
@@ -68,3 +71,30 @@ def test_build_correlation_matrix_keys_every_pair_once():
     returns = {"A": [1.0, 2.0, 3.0], "B": [2.0, 4.0, 6.0], "C": [3.0, 2.0, 1.0]}
     matrix = build_correlation_matrix(returns)
     assert set(matrix.keys()) == {("A", "B"), ("A", "C"), ("B", "C")}
+
+
+def test_is_matrix_stale_missing_timestamp():
+    assert is_matrix_stale(None, 24) is True
+
+
+def test_is_matrix_stale_boundary_conditions():
+    now = datetime.now(timezone.utc)
+    recent = (now - timedelta(hours=1)).isoformat()
+    assert is_matrix_stale(recent, 24, now=now) is False
+
+    old = (now - timedelta(hours=25)).isoformat()
+    assert is_matrix_stale(old, 24, now=now) is True
+
+    exactly_at_boundary = (now - timedelta(hours=24)).isoformat()
+    assert is_matrix_stale(exactly_at_boundary, 24, now=now) is False
+
+    just_over = (now - timedelta(hours=24, minutes=1)).isoformat()
+    assert is_matrix_stale(just_over, 24, now=now) is True
+
+
+def test_is_matrix_stale_handles_naive_timestamps():
+    # a timestamp without tzinfo (e.g. from an older sqlite row written
+    # before timezone-aware ISO strings) must not crash — treated as UTC
+    now = datetime.now(timezone.utc)
+    naive = (now - timedelta(hours=1)).replace(tzinfo=None).isoformat()
+    assert is_matrix_stale(naive, 24, now=now) is False

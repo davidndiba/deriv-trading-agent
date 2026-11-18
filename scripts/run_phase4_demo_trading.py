@@ -1,6 +1,11 @@
 """Phase 4 entry point: Phase 3's approval-gated demo trading, hardened
-with a max-concurrent-contracts cap, a currency-correlation guard, and
-Telegram alerting.
+with a max-concurrent-contracts cap, a currency-correlation guard,
+Telegram alerting, a news-event blackout, and — opt-in via
+USE_REAL_CORRELATION_MATRIX — a second correlation check against an
+actually-measured price correlation (scripts/run_phase17_correlation_matrix.py),
+additive alongside the currency-overlap heuristic rather than replacing
+it. Falls back to the heuristic alone if no matrix has been logged yet
+or the logged one is older than CORRELATION_MATRIX_MAX_AGE_HOURS.
 
 Still demo only — refuses ENV=live, same as every prior phase. Per
 docs/SPEC.md, Phase 4 is only considered *done* after Phase 3 has run
@@ -26,6 +31,7 @@ from config.settings import Settings, load_settings
 from schemas.models import TradeProposal
 from storage.db import (
     get_connection,
+    get_latest_correlation_matrix_with_timestamp,
     get_open_trade_count,
     get_open_trades,
     get_realized_pnl_today,
@@ -33,6 +39,7 @@ from storage.db import (
     log_trade_closed,
     log_trade_opened,
 )
+from tools.correlation_matrix import correlated_by_matrix, is_matrix_stale
 from tools.deriv_client import DerivClient, parse_candles
 from tools.exposure import correlated_open_symbols, currency_exposure
 from tools.news_calendar import fetch_this_weeks_events, is_within_news_blackout
@@ -127,6 +134,19 @@ async def run(
                 await notifier.send(msg)
                 return
 
+        correlation_matrix: dict = {}
+        if settings.use_real_correlation_matrix:
+            correlation_matrix, computed_at = get_latest_correlation_matrix_with_timestamp(conn)
+            if is_matrix_stale(computed_at, settings.correlation_matrix_max_age_hours):
+                print(
+                    "Real correlation matrix is missing or stale "
+                    f"(>{settings.correlation_matrix_max_age_hours}h old) — "
+                    "falling back to the currency-overlap heuristic alone "
+                    "this run. Run scripts/run_phase17_correlation_matrix.py "
+                    "to refresh it."
+                )
+                correlation_matrix = {}
+
         for symbol in settings.symbols:
             open_count = get_open_trade_count(conn)
             if open_count >= settings.max_concurrent_contracts:
@@ -175,6 +195,21 @@ async def run(
                 print(msg)
                 await notifier.send(msg)
                 continue
+
+            if correlation_matrix:
+                matrix_correlated = correlated_by_matrix(
+                    symbol, signal.direction.value, open_trades, correlation_matrix,
+                    threshold=settings.correlation_matrix_threshold,
+                )
+                if matrix_correlated:
+                    msg = (
+                        f"[{symbol}] skipped — real-correlation guard: "
+                        f"{signal.direction.value} stacks with {matrix_correlated} "
+                        f"(|correlation| >= {settings.correlation_matrix_threshold})"
+                    )
+                    print(msg)
+                    await notifier.send(msg)
+                    continue
 
             risk = build_risk_breakdown(signal, balance, settings)
             proposal = TradeProposal(signal=signal, risk=risk)

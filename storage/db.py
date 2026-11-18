@@ -358,3 +358,22 @@ def get_latest_correlation_matrix(conn: sqlite3.Connection) -> dict[tuple[str, s
         (latest,),
     ).fetchall()
     return {(r[0], r[1]): r[2] for r in rows}
+
+
+def get_latest_correlation_matrix_with_timestamp(
+    conn: sqlite3.Connection,
+) -> tuple[dict[tuple[str, str], float], str | None]:
+    """Same as get_latest_correlation_matrix(), plus the run's own
+    computed_at (None if nothing has been logged) — for a caller that
+    needs to decide whether that run is too stale to trust, e.g. a live
+    trading script deciding whether to apply the real-correlation guard
+    this run or fall back to the heuristic alone."""
+    row = conn.execute("SELECT MAX(computed_at) FROM correlation_matrix").fetchone()
+    latest = row[0]
+    if latest is None:
+        return {}, None
+    rows = conn.execute(
+        "SELECT symbol_a, symbol_b, correlation FROM correlation_matrix WHERE computed_at = ?",
+        (latest,),
+    ).fetchall()
+    return {(r[0], r[1]): r[2] for r in rows}, latest
